@@ -35,3 +35,10 @@
 .mom-badge.down {color:#a32e48;background:#ffe8ee}
 .mom-badge.flat {color:#475569;background:#edf1f6}
 .dw-metric .mom-strip {padding:10px 0;margin-top:10px}
+
+.overview-filters {
+ display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,10rem),1fr));
+ gap:12px;align-items:end;padding:16px;margin:14px 0;
+ background:white;border:1px solid #dce3ec;border-radius:12px;
+}
+.overview-filters select {width:100%;min-width:0}

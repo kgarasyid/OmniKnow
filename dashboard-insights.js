@@ -40,10 +40,46 @@ function extraCharts(xs,tab=dashboardTab,sub=dashboardSub[tab]){
 }
 function pairedChangeChart(xs){const rows=assessmentRows(xs);return dashCard('Pre / post learning movement','Each dot is one matched agent. Horizontal: pre-test; vertical: post-test. Click a dot for agent details.',`<svg class="di-scatter" viewBox="0 0 560 290" role="group" aria-label="Pre and post score scatter plot"><path d="M40 20V250H530" fill="none" stroke="#6B7280"/><path d="M40 250L530 20" fill="none" stroke="#6B7280" stroke-dasharray="5 5"/>${[0,25,50,75,100].map(v=>`<text x="${40+4.9*v}" y="269" text-anchor="middle">${v}</text><text x="30" y="${254-2.3*v}" text-anchor="end">${v}</text>`).join('')}<text x="280" y="286" text-anchor="middle">Pre-test score / 100</text><text x="42" y="14">Post-test score / 100</text>${rows.map(a=>`<circle tabindex="0" role="button" data-agent="${el(a.id)}" aria-label="${el(a.name+' pre '+a.pre+', post '+a.post)}" data-chart-tip="${el(a.name+' · '+a.ctp+'\nPre '+a.pre+' · Post '+a.post+' · Gain '+(a.post-a.pre).toFixed(1)+' pp')}" cx="${40+Number(a.pre)*4.9}" cy="${250-Number(a.post)*2.3}" r="5" fill="${a.post<a.pre?'#C8202E':'#1B4F8A'}" stroke="white"/>`).join('')}</svg><p class="small">Dashed line: no score change. Blue: unchanged or improved; red: lower post-test. ${rows.length} valid pairs; overlapping dots can represent multiple agents.</p>`)}
 function dashboardEnrichment(xs){return `${dashboardTab===0?'':participantOverview(xs)}${extraCharts(xs)}${rankingPanel(rankDataset(xs))}${dashboardTab===0||(dashboardTab===4&&dashboardSub[4]!=='Reguler Try Out')?agentVocPanel(xs):''}`}
-function bindInsights(){document.querySelectorAll('[data-insight-action]').forEach(b=>b.addEventListener('click',()=>{const k=b.dataset.insightKey;if(b.dataset.insightAction==='region')region=k;if(b.dataset.insightAction==='voc-sentiment')vocSentiment=k;if(b.dataset.insightAction==='voc-topic')vocTopic=k;render()}));document.querySelectorAll('[data-voc-reset]').forEach(b=>b.addEventListener('click',()=>{vocSentiment='All';vocTopic='All';render()}));document.querySelectorAll('.di-scatter [data-agent]').forEach(b=>b.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();modal={type:'agent',id:b.dataset.agent};render()}}));document.querySelectorAll('[data-download-page]').forEach(b=>b.addEventListener('click',()=>downloadPagePdf()));document.querySelectorAll('[data-download-excel]').forEach(b=>b.addEventListener('click',()=>downloadDashboardExcel()));}
+function bindInsights(){bindOverviewFilters();document.querySelectorAll('[data-insight-action]').forEach(b=>b.addEventListener('click',()=>{const k=b.dataset.insightKey;if(b.dataset.insightAction==='region')region=k;if(b.dataset.insightAction==='voc-sentiment')vocSentiment=k;if(b.dataset.insightAction==='voc-topic')vocTopic=k;render()}));document.querySelectorAll('[data-voc-reset]').forEach(b=>b.addEventListener('click',()=>{vocSentiment='All';vocTopic='All';render()}));document.querySelectorAll('.di-scatter [data-agent]').forEach(b=>b.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();modal={type:'agent',id:b.dataset.agent};render()}}));document.querySelectorAll('[data-download-page]').forEach(b=>b.addEventListener('click',()=>downloadPagePdf()));document.querySelectorAll('[data-download-excel]').forEach(b=>b.addEventListener('click',()=>downloadDashboardExcel()));}
 
+const overviewDimensions = [
+ {key:'ctp', label:'CTP', value:a=>a.ctp},
+ {key:'area', label:'Area / Site', value:a=>agentLocation(a)},
+ {key:'region', label:'Region', value:a=>a.region||'Unassigned'},
+ {key:'unit', label:'Unit', value:a=>a.unitName||a.branch||'Unassigned'}
+];
+const overviewSelection = {};
+function bindOverviewFilters(){
+ const form=document.querySelector('.overview-filters');
+ if(!form)return;
+ form.onchange=event=>{
+  const key=event.target.name;
+  const index=overviewDimensions.findIndex(d=>d.key===key);
+  if(index<0)return;
+  overviewSelection[key]=event.target.value;
+  for(const child of overviewDimensions.slice(index+1))delete overviewSelection[child.key];
+  render();
+  document.querySelector('.overview-filters [name="'+key+'"]')?.focus();
+ };
+ form.onreset=event=>{
+  event.preventDefault();
+  for(const d of overviewDimensions)delete overviewSelection[d.key];
+  render();
+  document.querySelector('.overview-filters select')?.focus();
+ };
+}
 function participantOverview(xs){
- const pairs=assessmentRows(xs),demo=xs.filter(isShowcaseAgent),weighted=a=>a.attitude*.4+a.skill*.3+a.knowledge*.3;
+ const controls=[];
+ for(const {key,label,value} of overviewDimensions){
+  const selected=overviewSelection[key]||'';
+  const options=new Set(xs.map(value).filter(Boolean));
+  if(selected)options.add(selected);
+  controls.push(`<label class="field">${label}<select name="${key}"><option value="">All</option>${[...options].sort().map(v=>`<option value="${el(v)}" ${v===selected?'selected':''}>${el(v==='Contact Center'?'Call Center':v)}</option>`).join('')}</select></label>`);
+  if(selected)xs=xs.filter(a=>value(a)===selected);
+ }
+ const form=`<form class="overview-filters" aria-label="Participant overview filters">${controls.join('')}<button type="reset" class="btn">Reset overview filters</button></form>`;
+ const ids=new Set(xs.map(a=>a.id));
+ const pairs=assessmentRows(xs).filter(a=>ids.has(a.id)),demo=xs.filter(isShowcaseAgent),weighted=a=>a.attitude*.4+a.skill*.3+a.knowledge*.3;
  const metric=(label,value,note)=>'<article class="dw-metric"><span>'+label+'</span><strong>'+value+'</strong><small>'+note+'</small></article>';
  const counts=key=>[...new Set(xs.map(key))].map(k=>({label:k,value:xs.filter(a=>key(a)===k).length}));
  const regions=counts(a=>a.region).map(r=>({...r,action:'region',key:r.label}));
@@ -51,7 +87,7 @@ function participantOverview(xs){
  const mix=['Offline','Online'].map((label,i)=>({label,value:demo.filter(a=>Number(a.id.replace(/\D/g,''))%2===i).length,color:i?'#374151':'#1B4F8A'}));
  const scores=['attitude','skill','knowledge'].map((k,i)=>({label:k[0].toUpperCase()+k.slice(1),value:xs.length?Number(avg(xs.map(a=>a[k])).toFixed(1)):0,color:['#1B4F8A','#6B7280','#374151'][i]}));
  scores.push({label:'Weighted ASK',value:xs.length?Number(avg(xs.map(weighted)).toFixed(1)):0,color:'#C8202E'});
- return '<section class="di-overview"><h2>Participant & capability overview</h2><p class="small">Shared filtered roster context; category-specific results and rankings are shown separately.</p><div class="dw-metrics">'+metric('Total participants',xs.length,'Agents in the shared filter')+metric('Unique agent IDs',new Set(xs.map(a=>a.id)).size,'Unique roster identities')+metric('Average post-test',pairs.length?avg(pairs.map(a=>a.post)).toFixed(1):'—',pairs.length+' valid pre/post pairs')+metric('Average total ASK',xs.length?avg(xs.map(weighted)).toFixed(1):'—','40% Attitude · 30% Skill · 30% Knowledge')+'</div><div class="dw-grid">'+dashCard('Participants by Month','Latest selected snapshot month per agent; dated dummy history',insightBars(months,Math.max(1,demo.length)))+dashCard('Participants by Region','All matching regions · click to filter',insightBars(regions,Math.max(1,...regions.map(r=>r.value))))+dashCard('Online vs Offline','Illustrative delivery mode for '+demo.length+' demo agents; other records excluded',askDonutChart(mix,demo.length,'learners'))+dashCard('ASK Score Averages','Dimension averages and weighted total / 100',xs.length?insightBars(scores):'<p>No matching agents.</p>')+'</div>'+dashCard('Participants by Area / Site','Operational locations; E-Care location is unassigned',insightBars(counts(agentLocation),Math.max(1,xs.length)))+'</section>';
+ return '<section class="di-overview"><h2>Participant & capability overview</h2>'+form+'<div class="dw-metrics">'+metric('Total participants',xs.length,'Agents in this overview')+metric('Unique agent IDs',new Set(xs.map(a=>a.id)).size,'Unique roster identities')+metric('Average post-test',pairs.length?avg(pairs.map(a=>a.post)).toFixed(1):'—',pairs.length+' valid pre/post pairs')+metric('Average total ASK',xs.length?avg(xs.map(weighted)).toFixed(1):'—','40% Attitude · 30% Skill · 30% Knowledge')+'</div><div class="dw-grid">'+dashCard('Participants by Month','Latest selected snapshot month per agent; dated dummy history',insightBars(months,Math.max(1,demo.length)))+dashCard('Participants by Region','All matching regions · click to filter',insightBars(regions,Math.max(1,...regions.map(r=>r.value))))+dashCard('Online vs Offline','Illustrative delivery mode for '+demo.length+' demo agents; other records excluded',askDonutChart(mix,demo.length,'learners'))+dashCard('ASK Score Averages','Dimension averages and weighted total / 100',xs.length?insightBars(scores):'<p>No matching agents.</p>')+'</div>'+dashCard('Participants by Area / Site','Operational locations; E-Care location is unassigned',insightBars(counts(agentLocation),Math.max(1,xs.length)))+'</section>';
 }
 function executiveSummary(xs){
  const pairs=assessmentRows(xs),feedback=vocRows(xs),weighted=a=>a.attitude*.4+a.skill*.3+a.knowledge*.3;
