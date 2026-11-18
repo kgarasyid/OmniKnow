@@ -1,14 +1,14 @@
-# Dashboard release — 2026-11-18
+# Verified production release - 2026-11-18
 
 - Production: https://omniknow.vercel.app/
-- Vercel project: `prj_c3wzqYUlLSAxFJQ1llRWt62y2G0N` / `omniknow`
-- Team: `team_WJia9XLZutMg9OMjMGjtHs0D`
-- Deployment: `dpl_AGTKRNVVaeT5vU2V1VdsArr2m9wJ` — READY
-- Source commit: `899f758f16388fe183c9e061014a34098f171443`
-- Index SHA256: `f423f9e8d4bb824f58879df7d81c507a1427748f64840ec02bada5e7bb73b0f2`
+- Repository: https://github.com/kgarasyid/OmniKnow
+- Application source commit: 4b38dc707c13dbcda490d789e8b3ab9bd6617718
+- Vercel project: prj_c3wzqYUlLSAxFJQ1llRWt62y2G0N / omniknow
+- Team: team_WJia9XLZutMg9OMjMGjtHs0D
+- Deployment: dpl_7i9B1pkd5KKxiWw2FV3YB1XFMR3p - READY, production alias assigned.
 
-Live byte comparison passed for index, dashboard JS/CSS, survey JS and Apps Script template. Fresh production browser navigation verified Training Reguler, ACS Booster, Bad Ticket and return to Summary; no console errors observed. Live screenshot: `artifacts/redesign/live-dashboard.png` (local verification evidence; not published).
+Production now includes Participant & capability overview before Executive Summary, cascading CTP / Area or Site / Region / Unit overview filters, colored rankings and visible MoM badges. GitHub already contained these application changes; this release publishes that exact source to Vercel.
 
-The existing pre-deployment browser tab showed an unchanged panel after automation clicks while at an unexpected narrow viewport. A fresh tab loaded the same production URL and navigation worked. No source change was needed; verification above refers to the fresh tab.
+Verification: build, check, assessment, survey, dashboard and period tests passed. The public index and all seven external application assets were byte-compared with this checkout. Browser checks confirmed cascading filters through Unit, filtered participant counts, navigation across all six dashboard categories and visible MoM badges; no browser console errors were observed.
 
-No corporate reference PDF/video data was uploaded. This remains a local Git repository with deployment through the authorized Vercel connector; this release does not establish a GitHub connection or transfer ownership.
+Deployment used the authorized Vercel API. This record does not claim automatic GitHub-to-Vercel deployment integration. Future source changes must also be deployed and verified at the production URL.
