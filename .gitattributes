@@ -1,0 +1,4 @@
+* text=auto eol=lf
+# Keep the recovered deployment's exact bytes, including on Windows.
+index.html -text
+reference/deployed-index.html -text

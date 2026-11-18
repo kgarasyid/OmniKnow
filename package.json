@@ -1,0 +1,21 @@
+{
+  "name": "omniknow",
+  "version": "0.0.0-rev-y",
+  "private": true,
+  "description": "OmniKnow showcase with shared assessment distributions and responsive pages",
+  "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "dev": "node scripts/serve.mjs",
+    "build": "node scripts/build.mjs",
+    "preview": "node scripts/serve.mjs --dist",
+    "check": "node scripts/check.mjs",
+    "test:assessment": "node scripts/test-assessment.mjs",
+    "test:survey": "node scripts/test-survey.mjs",
+    "test:dashboard": "node scripts/test-dashboard.mjs",
+    "verify:baseline": "node scripts/check.mjs --baseline",
+    "verify:live": "node scripts/check.mjs --live"
+  }
+}

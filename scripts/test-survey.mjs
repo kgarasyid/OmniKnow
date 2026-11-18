@@ -1,0 +1,42 @@
+import {readFile} from 'node:fs/promises';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+import {normalizeFeedUrl,readFeed,POST} from '../api/survey-feed.js';
+const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
+const main=html.match(/<script>([\s\S]*?)<\/script>/)[1].replace(/initializePeriodFeatures\(\);/,'').replace(/render\(\);\s*$/,'');
+const c=vm.createContext({structuredClone,Blob,console,localStorage:{getItem:()=>null,setItem:()=>{}},setTimeout,clearTimeout});
+vm.runInContext(await readFile(new URL('../survey-monitor.js',import.meta.url),'utf8'),c);
+vm.runInContext(await readFile(new URL('../dashboard-insights.js',import.meta.url),'utf8'),c);vm.runInContext(main,c);
+const run=code=>JSON.parse(JSON.stringify(vm.runInContext(code,c)));
+assert.equal(run('surveyScore("8 / 10",100)'),80);
+assert.equal(run('surveyScore("6",10)'),60);
+assert.equal(run('surveyScore("75%",20)'),75);
+for(const value of ['',null,'NaN','101','-1','8/0'])assert.equal(run(`surveyScore(${JSON.stringify(value)},100)`),null);
+vm.runInContext(`const testMap={id:'Agent ID',score:'Score',timestamp:'Timestamp'};
+const testFeed={headers:['Agent ID','Score','Timestamp'],rows:[
+['SYN-0001','6/10','2026-11-04T08:00:00Z'],['SYN-0001','8/10','2026-11-04T09:00:00Z'],
+['SYN-0001','7/10','2026-11-04T08:30:00Z'],['unknown','90','2026-11-04T09:00:00Z'],
+['SYN-0002','','2026-11-04T09:00:00Z'],['SYN-0003','80','04/11/2026']]};`,c);
+const normalized=run('surveyNormalize(testFeed,testMap,100, state.agents.map(a=>a.id))');
+assert.equal(normalized.records[0].score,80);assert.equal(normalized.duplicates,2);assert.equal(normalized.unknown,1);assert.equal(normalized.invalid,2);
+assert.equal(run('surveyNormalize(testFeed,{...testMap,timestamp:""},100,state.agents.map(a=>a.id)).records[0].score'),70);
+assert.deepEqual(run('surveyRowsFromText("Agent ID,Score\\nSYN-0001,80").rows'),[['SYN-0001','80']]);
+assert.throws(()=>run('surveyRowsFromText("ID,ID\\nx,y")'));
+vm.runInContext(`surveyCommit('pre',testFeed,testMap,100,'pre');surveyCommit('post',{headers:testFeed.headers,rows:[['SYN-0001','90','2026-11-04T10:00:00Z']]},testMap,100,'post');surveyState().enabled=true;`,c);
+assert.deepEqual(run('assessmentRows().map(a=>[a.id,a.pre,a.post])'),[['SYN-0001',80,90]]);
+assert.equal(run('state.agents[0].pre'),48,'Original demo score preserved');
+assert.throws(()=>run(`surveyCommit('pre',{headers:['bad'],rows:[]},testMap,100,'bad')`));
+assert.equal(run('surveySource("pre").records[0].score'),80,'Failed mapping keeps successful snapshot');
+vm.runInContext(`surveyCommit('post',{headers:testFeed.headers,rows:[]},testMap,100,'post')`,c);
+assert.equal(run('assessmentRows().length'),0,'An empty valid feed clears stale rows');
+assert.equal(normalizeFeedUrl('https://docs.google.com/spreadsheets/d/abc/edit#gid=3'),'https://docs.google.com/spreadsheets/d/abc/export?format=csv&gid=3');
+for(const url of ['http://127.0.0.1','https://docs.google.com.evil.test/spreadsheets/d/a','https://user:pass@script.google.com/macros/s/a/exec','https://docs.google.com/forms/d/a/viewform','https://script.google.com:444/macros/s/a/exec'])assert.throws(()=>normalizeFeedUrl(url));
+const source='https://script.google.com/macros/s/demo/exec';
+let calls=0;
+const result=await readFeed(source,async url=>{calls++;return calls===1?new Response(null,{status:302,headers:{location:'https://script.googleusercontent.com/macros/echo?x=1'}}):new Response('{"headers":["id","score"],"rows":[]}')});
+assert.equal(calls,2);assert.ok(result.text.includes('headers'));
+await assert.rejects(readFeed(source,async()=>new Response(null,{status:302,headers:{location:'http://127.0.0.1/internal'}})));
+await assert.rejects(readFeed(source,async()=>new Response('<html>Sign in</html>')));
+await assert.rejects(readFeed(source,async()=>new Response('a',{headers:{'content-length':'3000000'}})));
+const rejected=await POST(new Request('https://omniknow.vercel.app/api/survey-feed',{method:'POST',headers:{origin:'https://other.test'},body:'{}'}));assert.equal(rejected.status,403);
+console.log('PASS: score normalization, independent sources, pairing, duplicate precedence, unknown/invalid rows, empty feeds, snapshot retention, original data preservation, CSV/JSON structure, URL restrictions, redirects, sign-in pages, size limits and origin checks.');

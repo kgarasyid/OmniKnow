@@ -1,0 +1,28 @@
+{
+  "capturedAt": "2026-11-04T02:41:11.628Z",
+  "publicUrl": "https://omniknow.vercel.app/",
+  "revision": "Build 2026-10-26 Rev-X",
+  "sha256": "4a935063307e91045ced5abbb7723b1b62e6ff15e6d221f6e24f3666033688be",
+  "bytes": 161415,
+  "acquisition": "Public HTTPS response body, unchanged; not a server-side deployment-file extraction",
+  "project": {
+    "id": "prj_c3wzqYUlLSAxFJQ1llRWt62y2G0N",
+    "name": "omniknow",
+    "teamId": "team_WJia9XLZutMg9OMjMGjtHs0D",
+    "teamSlug": "kgarasyid-4449"
+  },
+  "latestDeploymentReportedByConnector": {
+    "id": "dpl_A2TVJtZFgcZU1SmTa7r7EczYyr5p",
+    "url": "https://omniknow-6zg75imb2-kgarasyid-4449.vercel.app",
+    "createdAt": 1793008071861,
+    "target": "production",
+    "state": "READY"
+  },
+  "deploymentSourceApi": "403 forbidden for team; exact deployment source tree not retrieved",
+  "responseHeaders": {
+    "content-type": "text/html; charset=utf-8",
+    "etag": "W/\"8b260022e23895674e4a6fe6c7d78af6\"",
+    "last-modified": "Wed, 04 Nov 2026 02:27:46 GMT",
+    "x-vercel-cache": "HIT"
+  }
+}
