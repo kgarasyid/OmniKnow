@@ -11,3 +11,27 @@
 
 .period-control{background:#fff;border:1px solid #dce3ec;border-radius:12px;padding:18px;margin:18px 0}.period-control form,.voc-filter{display:flex;gap:14px;align-items:end;flex-wrap:wrap}.period-control input{min-width:175px}.period-control p{font-size:12px;color:#53647a}.period-control #periodError{color:#C8202E}.voc-filter{margin:18px 0}.voc-filter .field{flex:1;min-width:160px}.chart-mom{padding:14px 18px;border-top:1px solid #e2e7ee;font-size:11px;background:#f7f9fc;color:#374151}.chart-mom summary{font-weight:700;cursor:pointer;color:#1B4F8A;margin-bottom:8px}.chart-mom>div{display:flex;justify-content:space-between;gap:15px;padding:5px 0}.chart-mom strong{text-align:right}.dw-voc td{white-space:normal;min-width:95px}.dw-voc td:nth-child(8){min-width:300px;max-width:450px}.period-control~.notice{margin-top:15px}@media(max-width:760px){.period-control form>*{flex:1}.chart-mom>div{flex-direction:column;gap:3px}.chart-mom strong{text-align:left}}
 .executive-summary{margin:0 0 28px;padding:20px;border:1px solid #dce3ec;border-top:4px solid #1B4F8A;border-radius:12px;background:#fff}.executive-summary h3{font-size:16px}.executive-summary li{margin-bottom:12px;line-height:1.6}.executive-plans{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.executive-plans p{font-size:13px;line-height:1.65}@media(max-width:1100px){.executive-plans{grid-template-columns:1fr}}
+
+/* Ranking panels share a scale across assessment scores and customer ratings. */
+.di-rankings .dw-card:first-child,.voc-rank-group.rank-top {
+  --rank-ink:#215ba9; --rank-wash:#e3eefc;
+}
+.di-rankings .dw-card:last-child,.voc-rank-group.rank-bottom {
+  --rank-ink:#a33750; --rank-wash:#fbe5ea;
+}
+.di-rankings .dw-card-head,.voc-rank-group h4 {
+  background:linear-gradient(100deg,var(--rank-wash),white);
+  color:var(--rank-ink);border-inline-start:4px solid var(--rank-ink);
+}
+.voc-rank-group {border:1px solid #dce3ec;border-radius:10px;overflow:hidden;min-width:0}
+.voc-rank-group h4 {margin:0;padding:14px 16px}
+.voc-rank-group .di-rank,.di-rankings .di-rank {display:grid;grid-template-columns:2rem minmax(0,1fr) auto;padding:12px 10px;gap:10px}
+.di-rank .di-rank-number {background:var(--rank-wash);color:var(--rank-ink)}
+.di-rank .rank-result {display:grid;justify-items:end;gap:5px;color:var(--rank-ink);font-variant-numeric:tabular-nums}
+.mom-strip {display:flex;flex-wrap:wrap;gap:8px 16px;padding:12px 16px;border-top:1px solid #e1e7ef;background:white;font-size:12px}
+.mom-series {display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
+.mom-badge {display:inline-block;border-radius:12px;padding:3px 8px;font:600 11px/1.45 system-ui;white-space:nowrap}
+.mom-badge.up {color:#076749;background:#dff6ed}
+.mom-badge.down {color:#a32e48;background:#ffe8ee}
+.mom-badge.flat {color:#475569;background:#edf1f6}
+.dw-metric .mom-strip {padding:10px 0;margin-top:10px}

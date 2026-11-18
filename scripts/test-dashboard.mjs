@@ -3,7 +3,7 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 const root=new URL('../',import.meta.url);
 const context=vm.createContext({structuredClone,Blob,TextEncoder,console,localStorage:{getItem:()=>null,setItem:()=>{}},setTimeout,clearTimeout});
-for(const file of ['survey-monitor.js','dashboard-workspace.js','dashboard-insights.js','dashboard-downloads.js'])vm.runInContext(await readFile(new URL(file,root),'utf8'),context);
+for(const file of ['survey-monitor.js','dashboard-workspace.js','dashboard-insights.js','dashboard-downloads.js','dashboard-period.js'])vm.runInContext(await readFile(new URL(file,root),'utf8'),context);
 const html=await readFile(new URL('index.html',root),'utf8');
 vm.runInContext(html.match(/<script>([\s\S]*?)<\/script>/)[1].replace(/initializePeriodFeatures\(\);/,'').replace(/render\(\);\s*$/,''),context);
 const run=code=>JSON.parse(JSON.stringify(vm.runInContext(code,context)));

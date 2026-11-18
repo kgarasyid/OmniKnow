@@ -7,6 +7,7 @@ const context=vm.createContext({structuredClone,Blob,console,localStorage:{getIt
 vm.runInContext(await readFile(new URL('../survey-monitor.js',import.meta.url),'utf8'),context);
 vm.runInContext(await readFile(new URL('../dashboard-insights.js',import.meta.url),'utf8'),context);
 vm.runInContext(await readFile(new URL('../dashboard-workspace.js',import.meta.url),'utf8'),context);
+vm.runInContext(await readFile(new URL('../dashboard-period.js',import.meta.url),'utf8'),context);
 vm.runInContext(script,context);
 // Original 48-agent regression fixture; E-Care addition has its own assertions.
 vm.runInContext("state.agents=state.agents.filter(a=>a.ctp!=='E-Care')",context);
