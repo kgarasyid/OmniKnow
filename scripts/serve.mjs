@@ -79,6 +79,25 @@ const server = createServer(async (request, response) => {
     return response.end('Bad request');
   }
   const path = url.pathname;
+  if (['/local-grapari-map', '/api/local-grapari', '/api/local-grapari-locations'].includes(path)) {
+    const hosts = [`127.0.0.1:${port}`, `localhost:${port}`];
+    const site = request.headers['sec-fetch-site'];
+    if (!hosts.includes(request.headers.host) || (site && site !== 'same-origin' && site !== 'none')) {
+      return jsonResponse(request, response, 403, {error:'Local access only'});
+    }
+    const localMapData = path === '/api/local-grapari' ? 'grapari-units.json' : path === '/api/local-grapari-locations' ? 'grapari-locations.json' : null;
+    try {
+      if (localMapData) {
+        const data = JSON.parse(await readFile(new URL('../private-data/' + localMapData, import.meta.url), 'utf8'));
+        return jsonResponse(request, response, 200, data);
+      }
+      const html = await readFile(new URL('../grapari-map.html', import.meta.url));
+      response.writeHead(200, {'Content-Type':'text/html; charset=utf-8', 'Cache-Control':'no-store'});
+      return response.end(request.method === 'HEAD' ? undefined : html);
+    } catch {
+      return jsonResponse(request, response, 404, {error:'Local GraPARI file unavailable'});
+    }
+  }
   if (askData && path === '/api/local-ask-summary') {
     const data = await askData;
     return jsonResponse(request,response,data ? 200 : 503,data?.summary ?? {error:'ASK workbook unavailable'});

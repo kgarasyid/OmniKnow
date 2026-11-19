@@ -9,3 +9,11 @@ dist/
 Thumbs.db
 verification-output/
 artifacts/redesign/
+
+# Authentication secrets and real data must never enter source control
+.env.example
+private-data/
+*.xlsx
+*.xls
+*.csv
+*.tsv
