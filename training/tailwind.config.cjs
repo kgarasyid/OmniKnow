@@ -1,0 +1,1 @@
+module.exports={ content:['./public/index.html','./public/tryout.js'],theme:{extend:{fontFamily:{sans:['Inter','system-ui','sans-serif']},colors:{brand:{red:'#DC2626',redDark:'#B91C1C',slate:'#0F172A'}}}}};

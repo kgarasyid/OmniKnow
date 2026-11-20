@@ -1,0 +1,17 @@
+{
+  "name": "omniknow-training",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "build": "tailwindcss -i style.css -o public/app.css --minify"
+  },
+  "dependencies": {
+    "@vercel/blob": "2.9.0"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.17"
+  }
+}

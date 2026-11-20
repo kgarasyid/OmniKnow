@@ -1,0 +1,1612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CS Training & Achievement Dashboard — GraPARI & Call Center Portal</title>
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/app.css">
+  <style>
+    /* Smooth bar height transitions and custom scrollbar styling */
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: #F1F5F9;
+      color: #0F172A;
+      overflow-x: hidden;
+    }
+
+    .bar-fill {
+      transition: height 0.55s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.2s ease, transform 0.15s ease;
+    }
+
+    .bar-trigger:hover .bar-fill,
+    .bar-trigger:focus-visible .bar-fill {
+      filter: brightness(1.07);
+      transform: scaleX(1.04);
+    }
+
+    .training-card {
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+
+    .training-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 24px -8px rgba(15, 23, 42, 0.10);
+      border-color: #CBD5E1;
+    }
+
+    /* Custom subtle scrollbars for modal tables */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #F1F5F9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #CBD5E1;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94A3B8;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-red-600 selection:text-white">
+
+  <!-- =====================================================================
+       1. TOP CORPORATE HEADER & INSTANT AGENT SWITCHER
+       ===================================================================== -->
+  <header class="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-30 shadow-md">
+    <!-- Subtle Crimson Corporate Accent Bar -->
+    <div class="h-1 w-full bg-gradient-to-r from-red-600 via-red-500 to-rose-600"></div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3.5">
+        <!-- Portal Brand & Title -->
+        <div class="flex items-center gap-3.5">
+          <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-red-600 to-red-700 flex items-center justify-center shadow-lg shadow-red-950/40 shrink-0 border border-red-500/30">
+            <!-- Shield / Chart Icon -->
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+          </div>
+          <div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <h1 class="text-lg sm:text-xl font-bold tracking-tight text-white">
+                CS Training &amp; Achievement Dashboard
+              </h1>
+              <span class="hidden sm:inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-red-600/20 text-red-300 border border-red-500/30">
+                DEMO PORTAL
+              </span>
+            </div>
+            <p class="text-xs sm:text-sm text-slate-300 font-medium">
+              GraPARI &amp; Call Center Performance Portal
+            </p>
+          </div>
+        </div>
+
+        <!-- Agent Selector Control -->
+        <div class="flex items-center gap-2.5 bg-slate-800/90 border border-slate-700/80 rounded-xl p-2 sm:px-3.5 sm:py-2 w-full md:w-auto">
+          <label for="agentSelector" class="text-xs font-semibold uppercase tracking-wider text-slate-400 whitespace-nowrap flex items-center gap-1.5">
+            <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            <span>Agent:</span>
+          </label>
+          <div class="relative flex-1 md:min-w-[285px]">
+            <select
+              id="agentSelector"
+              aria-label="Select Customer Service Agent"
+              class="w-full appearance-none bg-slate-900 hover:bg-slate-950 text-white text-sm font-medium rounded-lg pl-3 pr-9 py-2 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition cursor-pointer"
+            >
+              <!-- Populated dynamically via JS -->
+            </select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-400">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- =====================================================================
+       MAIN DASHBOARD CONTENT CONTAINER
+       ===================================================================== -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+<section id="practice" tabindex="-1" aria-label="Weekly tryout"></section>
+
+    <!-- ===================================================================
+         2. AGENT PROFILE CARD & SUMMARY KPI BADGES
+         =================================================================== -->
+    <section aria-label="Agent Profile and Summary KPIs" class="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden">
+      <div class="p-5 sm:p-6">
+        <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
+
+          <!-- Left: Avatar + Role Badge + 5 Required Profile Fields -->
+          <div class="flex flex-col sm:flex-row items-start gap-4 sm:gap-5 flex-1">
+            <!-- Avatar Initials -->
+            <div class="relative shrink-0">
+              <div id="profileAvatar" class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-red-700 text-white flex items-center justify-center text-xl sm:text-2xl font-extrabold tracking-tight shadow-md border-2 border-white ring-2 ring-slate-200">
+                NP
+              </div>
+              <span id="profileStatusDot" title="Active Agent" class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white"></span>
+            </div>
+
+            <!-- Profile Fields Grid -->
+            <div class="flex-1 w-full">
+              <div class="flex flex-wrap items-center gap-2.5 mb-3">
+                <span id="profileRoleBadge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold tracking-wide uppercase bg-red-50 text-red-700 border border-red-200">
+                  CS GraPARI
+                </span>
+                <span class="text-xs text-slate-400 font-medium">• Customer Care Operations</span>
+              </div>
+
+              <!-- All 5 Required Profile Fields Clearly Labeled -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3 bg-slate-50/80 rounded-xl p-3.5 sm:p-4 border border-slate-200/70">
+                <!-- Field 1: Name -->
+                <div>
+                  <span class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                    Name (Nama Agent)
+                  </span>
+                  <span id="profileName" class="text-sm sm:text-base font-bold text-slate-900 mt-0.5 block">
+                    Nadia Putri Maharani
+                  </span>
+                </div>
+
+                <!-- Field 2: NIK -->
+                <div>
+                  <span class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                    NIK
+                  </span>
+                  <div class="flex items-center gap-2 mt-0.5">
+                    <span id="profileNik" class="text-sm sm:text-base font-bold font-mono text-slate-800">
+                      2023084912
+                    </span>
+                    <button
+                      id="copyNikBtn"
+                      type="button"
+                      title="Copy NIK"
+                      class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 transition active:scale-95"
+                    >
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                      <span>Copy</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Field 3: Unit Origin -->
+                <div>
+                  <span class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                    Unit Origin (Unit Asal)
+                  </span>
+                  <span id="profileUnit" class="text-sm font-semibold text-slate-800 mt-0.5 block">
+                    GraPARI Central Park Jakarta
+                  </span>
+                </div>
+
+                <!-- Field 4: Region Origin -->
+                <div>
+                  <span class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                    Region Origin (Region Asal)
+                  </span>
+                  <span id="profileRegion" class="text-sm font-semibold text-slate-800 mt-0.5 block">
+                    Region Jabotabek
+                  </span>
+                </div>
+
+                <!-- Field 5: Area Origin -->
+                <div class="sm:col-span-2 lg:col-span-2">
+                  <span class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                    Area Origin (Area Asal)
+                  </span>
+                  <span id="profileArea" class="text-sm font-semibold text-slate-800 mt-0.5 block">
+                    Area 2 (Jabotabek Jabar)
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Summary KPI Badges -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-1 gap-3 xl:w-72 shrink-0">
+            <!-- KPI 1: Overall Average Score -->
+            <div class="rounded-xl bg-slate-900 text-white p-3.5 flex items-center justify-between border border-slate-800 shadow-sm">
+              <div>
+                <span class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  Overall Average Score
+                </span>
+                <div class="flex items-baseline gap-1.5 mt-0.5">
+                  <span id="kpiOverallAvg" class="text-2xl font-extrabold tracking-tight text-white">89.8</span>
+                  <span class="text-xs text-slate-400 font-medium">/ 100</span>
+                </div>
+              </div>
+              <span id="kpiOverallBadge" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                PASSED
+              </span>
+            </div>
+
+            <!-- KPI 2: Passing Threshold (KKM: 80) -->
+            <div class="rounded-xl bg-slate-50 p-3.5 flex items-center justify-between border border-slate-200/90">
+              <div>
+                <span class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                  Passing Threshold
+                </span>
+                <span class="text-base font-bold text-slate-900 mt-0.5 block">
+                  KKM: 80.0
+                </span>
+              </div>
+              <span id="kpiDeltaKkm" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-800">
+                +9.8 pts
+              </span>
+            </div>
+
+            <!-- KPI 3: Training Completion Status -->
+            <div class="rounded-xl bg-slate-50 p-3.5 flex items-center justify-between border border-slate-200/90">
+              <div>
+                <span class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                  Training Completion
+                </span>
+                <span id="kpiCompletionText" class="text-sm font-bold text-slate-900 mt-0.5 block">
+                  6 / 6 Programs Passed
+                </span>
+              </div>
+              <span id="kpiCompletionBadge" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-800">
+                100%
+              </span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================
+         3. OVERALL ACHIEVEMENT BAR CHART (MAIN OVERVIEW GRAPH)
+         =================================================================== -->
+    <section aria-label="Overall Training Achievement Bar Graph" class="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-5 sm:p-6">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-5">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-red-600"></span>
+            <h2 class="text-base sm:text-lg font-bold text-slate-900">
+              Overall Training Achievement Comparison
+            </h2>
+          </div>
+          <p class="text-xs sm:text-sm text-slate-500 mt-0.5">
+            Side-by-side performance across all 6 mandatory CS training pillars (0–100 scale). Click any bar to inspect session details.
+          </p>
+        </div>
+
+        <!-- Chart Legend -->
+        <div class="flex flex-wrap items-center gap-3 text-xs font-medium text-slate-600 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200/80">
+          <div class="flex items-center gap-1.5">
+            <span class="w-3 h-3 rounded-sm bg-emerald-500 inline-block"></span>
+            <span>Passed (&ge; 80)</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-3 h-3 rounded-sm bg-amber-500 inline-block"></span>
+            <span>Below KKM (&lt; 80)</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-5 border-t-2 border-dashed border-red-600 inline-block"></span>
+            <span class="font-semibold text-red-700">KKM Benchmark (80)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Interactive Vertical Bar Chart Container -->
+      <div id="mainOverviewChart" class="w-full">
+        <!-- Rendered dynamically by JS -->
+      </div>
+    </section>
+
+    <!-- ===================================================================
+         4. DEDICATED TRAINING ACHIEVEMENT CARDS WITH BAR GRAPHS (6 CARDS)
+         =================================================================== -->
+    <section aria-label="Detailed Training Program Bar Charts" class="space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div>
+          <h2 class="text-base sm:text-lg font-bold text-slate-900">
+            Training Program Breakdown &amp; Sub-Module Graphs
+          </h2>
+          <p class="text-xs sm:text-sm text-slate-500">
+            Detailed evaluation per training category. Hover or tap bars for exact metrics; click any card to view session logs.
+          </p>
+        </div>
+        <span class="text-xs font-semibold text-slate-500 bg-white px-3 py-1.5 rounded-lg border border-slate-200 self-start sm:self-auto">
+          6 Active Training Modules
+        </span>
+      </div>
+
+      <!-- Responsive 2-column / 3-column Grid -->
+      <div id="trainingCardsGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+        <!-- All 6 Training Cards rendered dynamically by JS -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- =====================================================================
+       FOOTER
+       ===================================================================== -->
+  <footer class="bg-white border-t border-slate-200 mt-10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
+      <p class="font-medium">
+        CS Training &amp; Achievement Portal &bull; GraPARI &amp; Call Center Quality Assurance
+      </p>
+      <p>
+        Standard Passing Grade (KKM): <span class="font-semibold text-slate-700">80.0 / 100</span>
+      </p>
+    </div>
+  </footer>
+
+  <!-- =====================================================================
+       5. INTERACTIVE DETAIL MODAL FOR TRAINING SESSIONS
+       ===================================================================== -->
+  <div
+    id="detailModal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="modalTitle"
+    class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+  >
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in">
+      <!-- Modal Header -->
+      <div class="px-5 py-4 bg-slate-900 text-white flex items-start justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span id="modalCategoryTag" class="px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider bg-red-600 text-white">
+              TRAINING DETAIL
+            </span>
+            <span id="modalAgentTag" class="text-xs text-slate-300 font-medium">
+              Nadia Putri Maharani
+            </span>
+          </div>
+          <h3 id="modalTitle" class="text-lg font-bold text-white mt-1">
+            ASK (Agent Self Knowledge)
+          </h3>
+          <p id="modalSubtitle" class="text-xs text-slate-300 mt-0.5">
+            Weekly knowledge refresh &amp; product policy quizzes
+          </p>
+        </div>
+        <button
+          id="closeModalBtn"
+          type="button"
+          aria-label="Close modal"
+          class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Modal Summary Strip -->
+      <div id="modalSummaryStrip" class="grid grid-cols-3 gap-3 px-5 py-3.5 bg-slate-50 border-b border-slate-200 text-center sm:text-left">
+        <!-- Populated dynamically -->
+      </div>
+
+      <!-- Modal Session Table Body -->
+      <div class="p-5 overflow-y-auto flex-1">
+        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
+          Individual Assessment &amp; Session Breakdown
+        </h4>
+        <div class="overflow-x-auto rounded-xl border border-slate-200">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr id="modalTableHead" class="bg-slate-100/80 text-[11px] font-bold uppercase tracking-wider text-slate-600 border-b border-slate-200">
+                <!-- Populated dynamically -->
+              </tr>
+            </thead>
+            <tbody id="modalTableBody" class="divide-y divide-slate-200 text-sm">
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+        <span class="text-xs text-slate-500">
+          Benchmark KKM: <strong class="text-slate-700">80.0</strong>
+        </span>
+        <button
+          id="closeModalFooterBtn"
+          type="button"
+          class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition cursor-pointer"
+        >
+          Close Window
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       GLOBAL FLOATING BAR CHART TOOLTIP & TOAST NOTIFICATION
+       ===================================================================== -->
+  <div
+    id="chartTooltip"
+    role="tooltip"
+    class="fixed z-50 pointer-events-none hidden bg-slate-900/95 text-white rounded-xl px-3.5 py-2.5 shadow-xl border border-slate-700/90 text-xs max-w-[240px] backdrop-blur-xs"
+  >
+    <div id="tooltipTitle" class="font-bold text-white text-[13px] leading-snug"></div>
+    <div id="tooltipSubtitle" class="text-slate-400 text-[11px] mt-0.5"></div>
+    <div id="tooltipBody" class="mt-1.5 pt-1.5 border-t border-slate-700/80 space-y-1"></div>
+  </div>
+
+  <!-- Subtle Toast Notification (replaces alert) -->
+  <div
+    id="toastNotification"
+    class="fixed bottom-5 right-5 z-50 hidden items-center gap-2 bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-lg border border-slate-700"
+  >
+    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+    <span id="toastMessage">Copied to clipboard</span>
+  </div>
+
+  <!-- =====================================================================
+       APPLICATION DATA & INTERACTIVE CHART ENGINE (VANILLA JS)
+       ===================================================================== -->
+  <script>
+    (function () {
+      'use strict';
+
+      const KKM_THRESHOLD = 80;
+
+      /**
+       * Realistic Dummy Dataset for 3 CS Agents (GraPARI & Call Center)
+       * Every category average is computed dynamically from its underlying items
+       * to guarantee 100% mathematical consistency across all charts & KPIs.
+       */
+      const AGENTS_DATA = [
+        {
+          id: 'agent-1',
+          name: 'Nadia Putri Maharani',
+          nik: '2023084912',
+          unitOrigin: 'GraPARI Central Park Jakarta',
+          regionOrigin: 'Region Jabotabek',
+          areaOrigin: 'Area 2 (Jabotabek Jabar)',
+          roleBadge: 'CS GraPARI',
+          trainings: {
+            ask: {
+              key: 'ask',
+              shortTitle: 'ASK',
+              title: 'ASK (Agent Self Knowledge)',
+              subtitle: 'Weekly product knowledge & tariff policy assessments',
+              platform: 'ASK Web Portal • QA Jabotabek',
+              items: [
+                { label: 'Week 1', fullLabel: 'Week 1 — Halo+ & Roaming', score: 88, date: '03 Nov 2026', trainer: 'ASK Auto-Quiz' },
+                { label: 'Week 2', fullLabel: 'Week 2 — IndiHome Convergence', score: 90, date: '10 Nov 2026', trainer: 'ASK Auto-Quiz' },
+                { label: 'Week 3', fullLabel: 'Week 3 — eSIM & Device Bundling', score: 92, date: '17 Nov 2026', trainer: 'ASK Auto-Quiz' },
+                { label: 'Week 4', fullLabel: 'Week 4 — Fraud & SIM Swap SOP', score: 94, date: '20 Nov 2026', trainer: 'ASK Auto-Quiz' }
+              ]
+            },
+            lms: {
+              key: 'lms',
+              shortTitle: 'LMS (Online Course)',
+              title: 'Learning Management System (Online Course)',
+              subtitle: 'Self-paced e-learning certifications & completion scores',
+              platform: 'MyAcademy Digital LMS',
+              items: [
+                { label: 'Product', fullLabel: 'Product & Digital Services', score: 92, completion: '100%', date: '28 Oct 2026', trainer: 'MyAcademy LMS' },
+                { label: 'Billing', fullLabel: 'Billing & Network Basics', score: 88, completion: '100%', date: '02 Nov 2026', trainer: 'MyAcademy LMS' },
+                { label: 'Complaint', fullLabel: 'Handling Complaint Mastery', score: 94, completion: '100%', date: '08 Nov 2026', trainer: 'MyAcademy LMS' },
+                { label: 'Security', fullLabel: 'SOP Data Privacy & Security', score: 90, completion: '100%', date: '14 Nov 2026', trainer: 'MyAcademy LMS' }
+              ]
+            },
+            softHard: {
+              key: 'softHard',
+              shortTitle: 'Softskill & Hardskill',
+              title: 'Training Softskill & Hardskill',
+              subtitle: 'Behavioral service excellence vs. technical CRM proficiency',
+              platform: 'Regional Training Center Jakarta',
+              items: [
+                { label: 'Comm.', fullLabel: 'Communication Clarity', group: 'Softskill', score: 92, date: '15 Oct 2026', trainer: 'Rina Marlina (Lead Trainer)' },
+                { label: 'Empathy', fullLabel: 'Customer Empathy & Tone', group: 'Softskill', score: 94, date: '16 Oct 2026', trainer: 'Rina Marlina (Lead Trainer)' },
+                { label: 'De-escal.', fullLabel: 'Conflict De-escalation', group: 'Softskill', score: 89, date: '17 Oct 2026', trainer: 'Rina Marlina (Lead Trainer)' },
+                { label: 'CRM Sys', fullLabel: 'CRM & Siebel Navigation', group: 'Hardskill', score: 88, date: '18 Oct 2026', trainer: 'Dedi Kurniawan (Tech SME)' },
+                { label: 'Troublesh.', fullLabel: 'Network & App Troubleshooting', group: 'Hardskill', score: 86, date: '19 Oct 2026', trainer: 'Dedi Kurniawan (Tech SME)' },
+                { label: 'Prod. Mast', fullLabel: 'End-to-End Product Mastery', group: 'Hardskill', score: 91, date: '20 Oct 2026', trainer: 'Dedi Kurniawan (Tech SME)' }
+              ]
+            },
+            reguler: {
+              key: 'reguler',
+              shortTitle: 'Training Reguler',
+              title: 'Training Reguler',
+              subtitle: 'Scheduled classroom & virtual refreshment batches',
+              platform: 'GraPARI Academy Classroom',
+              items: [
+                { label: 'Batch 1', fullLabel: 'Batch 1: New Product & FMC', score: 87, date: '05 Sep 2026', trainer: 'Siti Nurhaliza (Trainer)' },
+                { label: 'Batch 2', fullLabel: 'Batch 2: Service Excellence', score: 91, date: '06 Oct 2026', trainer: 'Bambang Sutrisno (Trainer)' },
+                { label: 'Batch 3', fullLabel: 'Batch 3: Retention & Upselling', score: 89, date: '06 Nov 2026', trainer: 'Siti Nurhaliza (Trainer)' }
+              ]
+            },
+            prePost: {
+              key: 'prePost',
+              shortTitle: 'Pre-PostTest',
+              title: 'Pre-PostTest Evaluation',
+              subtitle: 'Knowledge gain comparison before & after intensive workshops',
+              platform: 'CBT Assessment Engine',
+              items: [
+                { label: 'Mod 1', fullLabel: 'Mod 1: Core Product & Tariff', pre: 64, post: 88, date: '12 Oct 2026', trainer: 'CBT Portal' },
+                { label: 'Mod 2', fullLabel: 'Mod 2: CRM & Billing Tools', pre: 68, post: 90, date: '19 Oct 2026', trainer: 'CBT Portal' },
+                { label: 'Mod 3', fullLabel: 'Mod 3: GraPARI Service Flow', pre: 70, post: 92, date: '26 Oct 2026', trainer: 'CBT Portal' },
+                { label: 'Mod 4', fullLabel: 'Mod 4: Complex Case Resolution', pre: 66, post: 90, date: '04 Nov 2026', trainer: 'CBT Portal' }
+              ]
+            },
+            tryout: {
+              key: 'tryout',
+              shortTitle: 'Tryout Results',
+              title: 'Tryout Results (Readiness Simulation)',
+              subtitle: 'Comprehensive certification readiness mock exams (KKM: 80)',
+              platform: 'National QA Certification Board',
+              items: [
+                { label: 'Tryout 1', fullLabel: 'Tryout 1 — Diagnostic Simulation', score: 84, date: '25 Oct 2026', trainer: 'QA Exam Proctor' },
+                { label: 'Tryout 2', fullLabel: 'Tryout 2 — Case & Speed Drill', score: 88, date: '05 Nov 2026', trainer: 'QA Exam Proctor' },
+                { label: 'Final', fullLabel: 'Final Readiness Tryout', score: 92, date: '15 Nov 2026', trainer: 'QA Exam Proctor' }
+              ]
+            }
+          }
+        },
+        {
+          id: 'agent-2',
+          name: 'Rizky Pratama Wijaya',
+          nik: '2022051784',
+          unitOrigin: 'Call Center BSD Tangerang',
+          regionOrigin: 'Region Jabotabek',
+          areaOrigin: 'Area 2 (Jabotabek Jabar)',
+          roleBadge: 'CS Call Center',
+          trainings: {
+            ask: {
+              key: 'ask',
+              shortTitle: 'ASK',
+              title: 'ASK (Agent Self Knowledge)',
+              subtitle: 'Weekly product knowledge & tariff policy assessments',
+              platform: 'ASK Web Portal • Call Center Ops',
+              items: [
+                { label: 'Week 1', fullLabel: 'Week 1 — Voice & Data Packages', score: 82, date: '03 Nov 2026', trainer: 'ASK Auto-Quiz' },
+                { label: 'Week 2', fullLabel: 'Week 2 — IndiHome Troubleshooting', score: 85, date: '10 Nov 2026', trainer: 'ASK Auto-Quiz' },
+                { label: 'Week 3', fullLabel: 'Week 3 — Digital VAS & Roaming', score: 84, date: '17 Nov 2026', trainer: 'ASK Auto-Quiz' },
+                { label: 'Week 4', fullLabel: 'Week 4 — Security Verification SOP', score: 89, date: '20 Nov 2026', trainer: 'ASK Auto-Quiz' }
+              ]
+            },
+            lms: {
+              key: 'lms',
+              shortTitle: 'LMS (Online Course)',
+              title: 'Learning Management System (Online Course)',
+              subtitle: 'Self-paced e-learning certifications & completion scores',
+              platform: 'MyAcademy Digital LMS',
+              items: [
+                { label: 'Product', fullLabel: 'Product & Digital Services', score: 90, completion: '100%', date: '27 Oct 2026', trainer: 'MyAcademy LMS' },
+                { label: 'Billing', fullLabel: 'Billing & Network Diagnostics', score: 92, completion: '100%', date: '01 Nov 2026', trainer: 'MyAcademy LMS' },
+                { label: 'Complaint', fullLabel: 'Inbound Complaint Handling', score: 86, completion: '100%', date: '07 Nov 2026', trainer: 'MyAcademy LMS' },
+                { label: 'Security', fullLabel: 'SOP Data Privacy & Security', score: 88, completion: '100%', date: '13 Nov 2026', trainer: 'MyAcademy LMS' }
+              ]
+            },
+            softHard: {
+              key: 'softHard',
+              shortTitle: 'Softskill & Hardskill',
+              title: 'Training Softskill & Hardskill',
+              subtitle: 'Voice etiquette & empathy vs. technical ticketing agility',
+              platform: 'Call Center BSD Training Hub',
+              items: [
+                { label: 'Comm.', fullLabel: 'Voice Clarity & Pacing', group: 'Softskill', score: 84, date: '14 Oct 2026', trainer: 'Maya Anggraini (Trainer)' },
+                { label: 'Empathy', fullLabel: 'Active Listening & Empathy', group: 'Softskill', score: 82, date: '15 Oct 2026', trainer: 'Maya Anggraini (Trainer)' },
+                { label: 'De-escal.', fullLabel: 'High-Emotion De-escalation', group: 'Softskill', score: 80, date: '16 Oct 2026', trainer: 'Maya Anggraini (Trainer)' },
+                { label: 'CRM Sys', fullLabel: 'Omnichannel & Ticketing CRM', group: 'Hardskill', score: 91, date: '17 Oct 2026', trainer: 'Fajar Nugroho (Tech SME)' },
+                { label: 'Troublesh.', fullLabel: 'Remote Network Diagnostics', group: 'Hardskill', score: 93, date: '18 Oct 2026', trainer: 'Fajar Nugroho (Tech SME)' },
+                { label: 'Prod. Mast', fullLabel: 'Technical Tariff & Add-on Mastery', group: 'Hardskill', score: 90, date: '19 Oct 2026', trainer: 'Fajar Nugroho (Tech SME)' }
+              ]
+            },
+            reguler: {
+              key: 'reguler',
+              shortTitle: 'Training Reguler',
+              title: 'Training Reguler',
+              subtitle: 'Scheduled virtual refreshment & FCR optimization batches',
+              platform: 'Call Center Academy',
+              items: [
+                { label: 'Batch 1', fullLabel: 'Batch 1: New Product & FCR', score: 83, date: '08 Sep 2026', trainer: 'Andi Saputra (Trainer)' },
+                { label: 'Batch 2', fullLabel: 'Batch 2: Call Quality Excellence', score: 85, date: '09 Oct 2026', trainer: 'Andi Saputra (Trainer)' },
+                { label: 'Batch 3', fullLabel: 'Batch 3: Cross-Selling Inbound', score: 87, date: '08 Nov 2026', trainer: 'Maya Anggraini (Trainer)' }
+              ]
+            },
+            prePost: {
+              key: 'prePost',
+              shortTitle: 'Pre-PostTest',
+              title: 'Pre-PostTest Evaluation',
+              subtitle: 'Knowledge gain comparison before & after intensive workshops',
+              platform: 'CBT Assessment Engine',
+              items: [
+                { label: 'Mod 1', fullLabel: 'Mod 1: Core Product & Tariff', pre: 60, post: 84, date: '11 Oct 2026', trainer: 'CBT Portal' },
+                { label: 'Mod 2', fullLabel: 'Mod 2: Diagnostic & CRM Tools', pre: 65, post: 88, date: '18 Oct 2026', trainer: 'CBT Portal' },
+                { label: 'Mod 3', fullLabel: 'Mod 3: Inbound Call Flow & SLA', pre: 58, post: 82, date: '25 Oct 2026', trainer: 'CBT Portal' },
+                { label: 'Mod 4', fullLabel: 'Mod 4: Escalation & Ticket QA', pre: 61, post: 86, date: '03 Nov 2026', trainer: 'CBT Portal' }
+              ]
+            },
+            tryout: {
+              key: 'tryout',
+              shortTitle: 'Tryout Results',
+              title: 'Tryout Results (Readiness Simulation)',
+              subtitle: 'Comprehensive certification readiness mock exams (KKM: 80)',
+              platform: 'National QA Certification Board',
+              items: [
+                { label: 'Tryout 1', fullLabel: 'Tryout 1 — Diagnostic Simulation', score: 76, date: '24 Oct 2026', trainer: 'QA Exam Proctor' },
+                { label: 'Tryout 2', fullLabel: 'Tryout 2 — Case & Speed Drill', score: 82, date: '04 Nov 2026', trainer: 'QA Exam Proctor' },
+                { label: 'Final', fullLabel: 'Final Readiness Tryout', score: 88, date: '14 Nov 2026', trainer: 'QA Exam Proctor' }
+              ]
+            }
+          }
+        },
+        {
+          id: 'agent-3',
+          name: 'Aulia Rahmawati',
+          nik: '2024019305',
+          unitOrigin: 'GraPARI Dago Bandung',
+          regionOrigin: 'Region Jawa Barat',
+          areaOrigin: 'Area 2 (Jabotabek Jabar)',
+          roleBadge: 'CS GraPARI',
+          trainings: {
+            ask: {
+              key: 'ask',
+              shortTitle: 'ASK',
+              title: 'ASK (Agent Self Knowledge)',
+              subtitle: 'Weekly product knowledge & tariff policy assessments',
+              platform: 'ASK Web Portal • QA Jabar',
+              items: [
+                { label: 'Week 1', fullLabel: 'Week 1 — Prepaid & Halo Basics', score: 75, date: '03 Nov 2026', trainer: 'ASK Auto-Quiz' },
+                { label: 'Week 2', fullLabel: 'Week 2 — IndiHome & Orbit', score: 78, date: '10 Nov 2026', trainer: 'ASK Auto-Quiz' },
+                { label: 'Week 3', fullLabel: 'Week 3 — Card Replacement & eSIM', score: 82, date: '17 Nov 2026', trainer: 'ASK Auto-Quiz' },
+                { label: 'Week 4', fullLabel: 'Week 4 — Fraud & Security SOP', score: 85, date: '20 Nov 2026', trainer: 'ASK Auto-Quiz' }
+              ]
+            },
+            lms: {
+              key: 'lms',
+              shortTitle: 'LMS (Online Course)',
+              title: 'Learning Management System (Online Course)',
+              subtitle: 'Self-paced e-learning certifications & completion scores',
+              platform: 'MyAcademy Digital LMS',
+              items: [
+                { label: 'Product', fullLabel: 'Product & Digital Services', score: 84, completion: '100%', date: '29 Oct 2026', trainer: 'MyAcademy LMS' },
+                { label: 'Billing', fullLabel: 'Billing & Network Basics', score: 80, completion: '100%', date: '03 Nov 2026', trainer: 'MyAcademy LMS' },
+                { label: 'Complaint', fullLabel: 'Handling Complaint Mastery', score: 86, completion: '100%', date: '09 Nov 2026', trainer: 'MyAcademy LMS' },
+                { label: 'Security', fullLabel: 'SOP Data Privacy & Security', score: 82, completion: '100%', date: '15 Nov 2026', trainer: 'MyAcademy LMS' }
+              ]
+            },
+            softHard: {
+              key: 'softHard',
+              shortTitle: 'Softskill & Hardskill',
+              title: 'Training Softskill & Hardskill',
+              subtitle: 'Behavioral service warmth vs. technical CRM system mastery',
+              platform: 'Regional Training Center Bandung',
+              items: [
+                { label: 'Comm.', fullLabel: 'Face-to-Face Communication', group: 'Softskill', score: 88, date: '15 Oct 2026', trainer: 'Lestari Dewi (Lead Trainer)' },
+                { label: 'Empathy', fullLabel: 'Hospitality & Empathy', group: 'Softskill', score: 90, date: '16 Oct 2026', trainer: 'Lestari Dewi (Lead Trainer)' },
+                { label: 'De-escal.', fullLabel: 'Walk-in Conflict De-escalation', group: 'Softskill', score: 85, date: '17 Oct 2026', trainer: 'Lestari Dewi (Lead Trainer)' },
+                { label: 'CRM Sys', fullLabel: 'CRM & Provisioning System', group: 'Hardskill', score: 76, date: '18 Oct 2026', trainer: 'Gilang Ramadhan (Tech SME)' },
+                { label: 'Troublesh.', fullLabel: 'Device & Network Troubleshooting', group: 'Hardskill', score: 74, date: '19 Oct 2026', trainer: 'Gilang Ramadhan (Tech SME)' },
+                { label: 'Prod. Mast', fullLabel: 'Product & Bundling Matrix', group: 'Hardskill', score: 81, date: '20 Oct 2026', trainer: 'Gilang Ramadhan (Tech SME)' }
+              ]
+            },
+            reguler: {
+              key: 'reguler',
+              shortTitle: 'Training Reguler',
+              title: 'Training Reguler',
+              subtitle: 'Scheduled classroom & virtual refreshment batches',
+              platform: 'GraPARI Jabar Classroom',
+              items: [
+                { label: 'Batch 1', fullLabel: 'Batch 1: New Product & FMC', score: 78, date: '07 Sep 2026', trainer: 'Lestari Dewi (Trainer)' },
+                { label: 'Batch 2', fullLabel: 'Batch 2: Service Excellence', score: 82, date: '08 Oct 2026', trainer: 'Reza Pahlevi (Trainer)' },
+                { label: 'Batch 3', fullLabel: 'Batch 3: Retention & Upselling', score: 84, date: '07 Nov 2026', trainer: 'Lestari Dewi (Trainer)' }
+              ]
+            },
+            prePost: {
+              key: 'prePost',
+              shortTitle: 'Pre-PostTest',
+              title: 'Pre-PostTest Evaluation',
+              subtitle: 'Knowledge gain comparison before & after intensive workshops',
+              platform: 'CBT Assessment Engine',
+              items: [
+                { label: 'Mod 1', fullLabel: 'Mod 1: Core Product & Tariff', pre: 52, post: 80, date: '13 Oct 2026', trainer: 'CBT Portal' },
+                { label: 'Mod 2', fullLabel: 'Mod 2: CRM & Billing Tools', pre: 56, post: 84, date: '20 Oct 2026', trainer: 'CBT Portal' },
+                { label: 'Mod 3', fullLabel: 'Mod 3: GraPARI Service Flow', pre: 54, post: 78, date: '27 Oct 2026', trainer: 'CBT Portal' },
+                { label: 'Mod 4', fullLabel: 'Mod 4: Complex Case Resolution', pre: 58, post: 82, date: '05 Nov 2026', trainer: 'CBT Portal' }
+              ]
+            },
+            tryout: {
+              key: 'tryout',
+              shortTitle: 'Tryout Results',
+              title: 'Tryout Results (Readiness Simulation)',
+              subtitle: 'Comprehensive certification readiness mock exams (KKM: 80)',
+              platform: 'National QA Certification Board',
+              items: [
+                { label: 'Tryout 1', fullLabel: 'Tryout 1 — Diagnostic Simulation', score: 74, date: '26 Oct 2026', trainer: 'QA Exam Proctor' },
+                { label: 'Tryout 2', fullLabel: 'Tryout 2 — Case & Speed Drill', score: 79, date: '06 Nov 2026', trainer: 'QA Exam Proctor' },
+                { label: 'Final', fullLabel: 'Final Readiness Tryout', score: 84, date: '16 Nov 2026', trainer: 'QA Exam Proctor' }
+              ]
+            }
+          }
+        }
+      ];
+
+      // State
+      let currentAgent = AGENTS_DATA[0];
+
+      // DOM References
+      const agentSelector = document.getElementById('agentSelector');
+      const profileAvatar = document.getElementById('profileAvatar');
+      const profileRoleBadge = document.getElementById('profileRoleBadge');
+      const profileName = document.getElementById('profileName');
+      const profileNik = document.getElementById('profileNik');
+      const profileUnit = document.getElementById('profileUnit');
+      const profileRegion = document.getElementById('profileRegion');
+      const profileArea = document.getElementById('profileArea');
+      const copyNikBtn = document.getElementById('copyNikBtn');
+
+      const kpiOverallAvg = document.getElementById('kpiOverallAvg');
+      const kpiOverallBadge = document.getElementById('kpiOverallBadge');
+      const kpiDeltaKkm = document.getElementById('kpiDeltaKkm');
+      const kpiCompletionText = document.getElementById('kpiCompletionText');
+      const kpiCompletionBadge = document.getElementById('kpiCompletionBadge');
+
+      const mainOverviewChart = document.getElementById('mainOverviewChart');
+      const trainingCardsGrid = document.getElementById('trainingCardsGrid');
+
+      const detailModal = document.getElementById('detailModal');
+      const closeModalBtn = document.getElementById('closeModalBtn');
+      const closeModalFooterBtn = document.getElementById('closeModalFooterBtn');
+      const modalCategoryTag = document.getElementById('modalCategoryTag');
+      const modalAgentTag = document.getElementById('modalAgentTag');
+      const modalTitle = document.getElementById('modalTitle');
+      const modalSubtitle = document.getElementById('modalSubtitle');
+      const modalSummaryStrip = document.getElementById('modalSummaryStrip');
+      const modalTableHead = document.getElementById('modalTableHead');
+      const modalTableBody = document.getElementById('modalTableBody');
+
+      const chartTooltip = document.getElementById('chartTooltip');
+      const tooltipTitle = document.getElementById('tooltipTitle');
+      const tooltipSubtitle = document.getElementById('tooltipSubtitle');
+      const tooltipBody = document.getElementById('tooltipBody');
+
+      const toastNotification = document.getElementById('toastNotification');
+      const toastMessage = document.getElementById('toastMessage');
+
+      // ===================================================================
+      // MATHEMATICAL HELPERS (100% ACCURATE & DETERMINISTIC)
+      // ===================================================================
+      function mean(numbers) {
+        if (!numbers || numbers.length === 0) return 0;
+        const sum = numbers.reduce((acc, n) => acc + n, 0);
+        return sum / numbers.length;
+      }
+
+      function formatScore(num) {
+        return Number(num).toFixed(1);
+      }
+
+      function getInitials(fullName) {
+        const parts = fullName.trim().split(/\s+/);
+        if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+        return (parts[0][0] + parts[1][0]).toUpperCase();
+      }
+
+      function getCategoryMetrics(agent) {
+        const t = agent.trainings;
+
+        const askAvg = mean(t.ask.items.map(i => i.score));
+        const lmsAvg = mean(t.lms.items.map(i => i.score));
+
+        const softItems = t.softHard.items.filter(i => i.group === 'Softskill');
+        const hardItems = t.softHard.items.filter(i => i.group === 'Hardskill');
+        const softAvg = mean(softItems.map(i => i.score));
+        const hardAvg = mean(hardItems.map(i => i.score));
+        const softHardAvg = mean(t.softHard.items.map(i => i.score));
+
+        const regulerAvg = mean(t.reguler.items.map(i => i.score));
+
+        const preAvg = mean(t.prePost.items.map(i => i.pre));
+        const postAvg = mean(t.prePost.items.map(i => i.post));
+        const prePostGain = postAvg - preAvg;
+
+        const tryoutAvg = mean(t.tryout.items.map(i => i.score));
+
+        // 6 Overview Pillars (Category 5 uses Post-Test Average as required)
+        const pillars = [
+          { key: 'ask', label: 'ASK', fullLabel: 'ASK (Agent Self Knowledge)', score: askAvg },
+          { key: 'lms', label: 'LMS (Online)', fullLabel: 'Learning Management System (Online Course)', score: lmsAvg },
+          { key: 'softHard', label: 'Soft & Hard', fullLabel: 'Training Softskill & Hardskill', score: softHardAvg },
+          { key: 'reguler', label: 'Training Reguler', fullLabel: 'Training Reguler', score: regulerAvg },
+          { key: 'prePost', label: 'Pre-PostTest', fullLabel: 'Pre-PostTest (Post-Test Average)', score: postAvg },
+          { key: 'tryout', label: 'Tryout Results', fullLabel: 'Tryout Results', score: tryoutAvg }
+        ];
+
+        const overallAvg = mean(pillars.map(p => p.score));
+        const passedCount = pillars.filter(p => p.score >= KKM_THRESHOLD).length;
+
+        return {
+          askAvg,
+          lmsAvg,
+          softAvg,
+          hardAvg,
+          softHardAvg,
+          regulerAvg,
+          preAvg,
+          postAvg,
+          prePostGain,
+          tryoutAvg,
+          pillars,
+          overallAvg,
+          passedCount
+        };
+      }
+
+      // ===================================================================
+      // TOOLTIP & TOAST UTILITIES
+      // ===================================================================
+      let toastTimer = null;
+      function showToast(msg) {
+        toastMessage.textContent = msg;
+        toastNotification.classList.remove('hidden');
+        toastNotification.classList.add('flex');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+          toastNotification.classList.add('hidden');
+          toastNotification.classList.remove('flex');
+        }, 2200);
+      }
+
+      function positionTooltip(clientX, clientY) {
+        const pad = 14;
+        const rect = chartTooltip.getBoundingClientRect();
+        let left = clientX + pad;
+        let top = clientY - rect.height - pad;
+
+        if (left + rect.width > window.innerWidth - 10) {
+          left = clientX - rect.width - pad;
+        }
+        if (left < 10) left = 10;
+
+        if (top < 10) {
+          top = clientY + pad;
+        }
+        if (top + rect.height > window.innerHeight - 10) {
+          top = window.innerHeight - rect.height - 10;
+        }
+
+        chartTooltip.style.left = `${left}px`;
+        chartTooltip.style.top = `${top}px`;
+      }
+
+      function showBarTooltip(e, data) {
+        tooltipTitle.textContent = data.title;
+        tooltipSubtitle.textContent = data.subtitle || '';
+        tooltipBody.innerHTML = data.rows.map(row => `
+          <div class="flex items-center justify-between gap-4">
+            <span class="text-slate-300">${row.label}:</span>
+            <span class="font-bold ${row.colorClass || 'text-white'}">${row.value}</span>
+          </div>
+        `).join('');
+
+        chartTooltip.classList.remove('hidden');
+
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        positionTooltip(clientX, clientY);
+      }
+
+      function hideBarTooltip() {
+        chartTooltip.classList.add('hidden');
+      }
+
+      // ===================================================================
+      // RENDER AGENT SELECTOR & PROFILE SECTION
+      // ===================================================================
+      function initAgentSelector() {
+        agentSelector.innerHTML = AGENTS_DATA.map(agent => `
+          <option value="${agent.id}">
+            ${agent.name} — ${agent.roleBadge} (${agent.nik})
+          </option>
+        `).join('');
+
+        agentSelector.addEventListener('change', (e) => {
+          const found = AGENTS_DATA.find(a => a.id === e.target.value);
+          if (found) {
+            currentAgent = found;
+            renderDashboard();
+          }
+        });
+      }
+
+      function renderProfileAndKPIs(metrics) {
+        profileAvatar.textContent = getInitials(currentAgent.name);
+        profileName.textContent = currentAgent.name;
+        profileNik.textContent = currentAgent.nik;
+        profileUnit.textContent = currentAgent.unitOrigin;
+        profileRegion.textContent = currentAgent.regionOrigin;
+        profileArea.textContent = currentAgent.areaOrigin;
+
+        // Role Badge Styling (GraPARI vs Call Center)
+        const isGraPARI = currentAgent.roleBadge.toLowerCase().includes('grapari');
+        profileRoleBadge.textContent = currentAgent.roleBadge;
+        profileRoleBadge.className = isGraPARI
+          ? 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold tracking-wide uppercase bg-red-50 text-red-700 border border-red-200'
+          : 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold tracking-wide uppercase bg-slate-100 text-slate-800 border border-slate-300';
+
+        // Overall KPIs
+        const overallStr = formatScore(metrics.overallAvg);
+        const overallPassed = metrics.overallAvg >= KKM_THRESHOLD;
+        kpiOverallAvg.textContent = overallStr;
+
+        kpiOverallBadge.textContent = overallPassed ? 'COMPETENT' : 'NEEDS REVIEW';
+        kpiOverallBadge.className = overallPassed
+          ? 'px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+          : 'px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30';
+
+        const diff = metrics.overallAvg - KKM_THRESHOLD;
+        const diffPrefix = diff >= 0 ? '+' : '';
+        kpiDeltaKkm.textContent = `${diffPrefix}${formatScore(diff)} pts`;
+        kpiDeltaKkm.className = diff >= 0
+          ? 'px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-800'
+          : 'px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-100 text-amber-800';
+
+        const totalPillars = metrics.pillars.length;
+        const pct = Math.round((metrics.passedCount / totalPillars) * 100);
+        kpiCompletionText.textContent = `${metrics.passedCount} / ${totalPillars} Programs Passed`;
+        kpiCompletionBadge.textContent = `${pct}%`;
+        kpiCompletionBadge.className = metrics.passedCount === totalPillars
+          ? 'px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-800'
+          : 'px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-100 text-amber-800';
+      }
+
+      // ===================================================================
+      // RENDER 3. MAIN OVERVIEW VERTICAL BAR CHART
+      // ===================================================================
+      function renderMainOverviewChart(metrics) {
+        const yTicks = [100, 80, 60, 40, 20, 0];
+
+        const barsHtml = metrics.pillars.map((pillar, idx) => {
+          const scoreVal = Number(pillar.score.toFixed(1));
+          const heightPct = Math.max(2, Math.min(100, scoreVal));
+          const isPassed = scoreVal >= KKM_THRESHOLD;
+          const barColor = isPassed
+            ? 'bg-gradient-to-t from-emerald-600 to-emerald-400'
+            : 'bg-gradient-to-t from-amber-600 to-amber-400';
+          const badgeColor = isPassed ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-amber-700 bg-amber-50 border-amber-200';
+
+          return `
+            <button
+              type="button"
+              data-overview-idx="${idx}"
+              data-category-key="${pillar.key}"
+              aria-label="${pillar.fullLabel}: ${scoreVal} out of 100"
+              class="bar-trigger group relative flex-1 h-full flex flex-col items-center justify-end px-1 sm:px-2.5 focus:outline-none cursor-pointer z-10"
+            >
+              <!-- Numeric Value Pill Above Bar -->
+              <span class="mb-1.5 px-2 py-0.5 rounded-md text-xs sm:text-sm font-extrabold border shadow-2xs transition-transform group-hover:-translate-y-0.5 ${badgeColor}">
+                ${formatScore(scoreVal)}
+              </span>
+
+              <!-- Vertical Bar -->
+              <div class="w-full max-w-[54px] sm:max-w-[64px] h-full flex items-end justify-center">
+                <div
+                  class="bar-fill w-full rounded-t-xl shadow-sm ${barColor}"
+                  style="height: ${heightPct}%;"
+                ></div>
+              </div>
+            </button>
+          `;
+        }).join('');
+
+        const labelsHtml = metrics.pillars.map(pillar => `
+          <div class="flex-1 text-center px-1">
+            <span class="block text-[11px] sm:text-xs font-bold text-slate-800 leading-tight">
+              ${pillar.label}
+            </span>
+          </div>
+        `).join('');
+
+        mainOverviewChart.innerHTML = `
+          <div class="w-full pt-2">
+            <div class="flex">
+              <!-- Y-Axis Scale Labels -->
+              <div class="w-9 sm:w-11 h-64 sm:h-72 flex flex-col justify-between text-right pr-2.5 text-[11px] font-semibold text-slate-400 select-none shrink-0">
+                ${yTicks.map(t => `<span class="${t === KKM_THRESHOLD ? 'text-red-600 font-bold' : ''}">${t}</span>`).join('')}
+              </div>
+
+              <!-- Plot Area -->
+              <div class="relative flex-1 h-64 sm:h-72 border-l border-b border-slate-300 bg-slate-50/40 rounded-tr-xl">
+                <!-- Horizontal Gridlines -->
+                <div class="absolute inset-0 flex flex-col justify-between pointer-events-none">
+                  ${yTicks.map(t => `
+                    <div class="w-full border-t ${t === 0 ? 'border-transparent' : 'border-slate-200/80'}"></div>
+                  `).join('')}
+                </div>
+
+                <!-- KKM 80 Dashed Benchmark Line -->
+                <div
+                  class="absolute left-0 right-0 border-t-2 border-dashed border-red-600 z-20 pointer-events-none flex justify-end items-center"
+                  style="bottom: ${KKM_THRESHOLD}%;"
+                >
+                  <span class=" -mt-6 mr-2 px-2 py-0.5 rounded bg-red-600 text-white text-[10px] font-bold tracking-wide shadow-xs">
+                    KKM 80
+                  </span>
+                </div>
+
+                <!-- Bars Row -->
+                <div class="relative w-full h-full flex items-end justify-around pt-6">
+                  ${barsHtml}
+                </div>
+              </div>
+            </div>
+
+            <!-- X-Axis Category Labels -->
+            <div class="flex mt-2.5">
+              <div class="w-9 sm:w-11 shrink-0"></div>
+              <div class="flex-1 flex items-start justify-around">
+                ${labelsHtml}
+              </div>
+            </div>
+          </div>
+        `;
+
+        // Attach hover & click listeners to main overview bars
+        const triggers = mainOverviewChart.querySelectorAll('[data-overview-idx]');
+        triggers.forEach(btn => {
+          const idx = Number(btn.getAttribute('data-overview-idx'));
+          const pillar = metrics.pillars[idx];
+          const diff = pillar.score - KKM_THRESHOLD;
+          const isPassed = pillar.score >= KKM_THRESHOLD;
+
+          const tooltipPayload = {
+            title: pillar.fullLabel,
+            subtitle: 'Click to view session details',
+            rows: [
+              { label: 'Achievement Score', value: `${formatScore(pillar.score)} / 100`, colorClass: isPassed ? 'text-emerald-400' : 'text-amber-400' },
+              { label: 'KKM Benchmark', value: '80.0', colorClass: 'text-slate-200' },
+              { label: 'Variance vs KKM', value: `${diff >= 0 ? '+' : ''}${formatScore(diff)} pts`, colorClass: diff >= 0 ? 'text-emerald-400' : 'text-amber-400' },
+              { label: 'Status', value: isPassed ? 'PASSED' : 'REMEDIAL / BELOW KKM', colorClass: isPassed ? 'text-emerald-400' : 'text-amber-400' }
+            ]
+          };
+
+          btn.addEventListener('mouseenter', (e) => showBarTooltip(e, tooltipPayload));
+          btn.addEventListener('mousemove', (e) => positionTooltip(e.clientX, e.clientY));
+          btn.addEventListener('mouseleave', hideBarTooltip);
+          btn.addEventListener('touchstart', (e) => showBarTooltip(e, tooltipPayload), { passive: true });
+          btn.addEventListener('click', () => {
+            hideBarTooltip();
+            openCategoryModal(pillar.key);
+          });
+        });
+      }
+
+      // ===================================================================
+      // RENDER 4. DEDICATED TRAINING ACHIEVEMENT CARDS (ALL 6 PROGRAMS)
+      // ===================================================================
+
+      /**
+       * Helper to build a standard single-bar-per-item vertical bar chart inside a card
+       */
+      function buildStandardMiniChart(items, categoryKey, customBarColorFn) {
+        return `
+          <div class="relative h-44 pt-5 pb-1 pl-7 pr-2 border-b border-slate-200 bg-slate-50/60 rounded-xl">
+            <!-- Y-Axis Reference Markers -->
+            <span class="absolute left-1.5 top-1 text-[10px] font-semibold text-slate-400 select-none">100</span>
+            <span class="absolute left-1.5 text-[10px] font-bold text-red-600 select-none" style="bottom: calc(${KKM_THRESHOLD}% - 6px);">80</span>
+            <span class="absolute left-2.5 bottom-1 text-[10px] font-semibold text-slate-400 select-none">0</span>
+
+            <!-- Dashed KKM 80 Line -->
+            <div
+              class="absolute left-7 right-2 border-t border-dashed border-red-500/80 pointer-events-none z-10"
+              style="bottom: ${KKM_THRESHOLD}%;"
+            ></div>
+
+            <!-- Bars -->
+            <div class="relative w-full h-full flex items-end justify-around gap-2 z-20">
+              ${items.map((item, idx) => {
+                const isPassed = item.score >= KKM_THRESHOLD;
+                const barBg = customBarColorFn
+                  ? customBarColorFn(item)
+                  : (isPassed ? 'bg-emerald-500' : 'bg-amber-500');
+                const valColor = isPassed ? 'text-emerald-700' : 'text-amber-700';
+
+                return `
+                  <div
+                    data-card-bar="${categoryKey}:${idx}"
+                    class="bar-trigger flex-1 h-full flex flex-col items-center justify-end cursor-pointer"
+                  >
+                    <span class="text-[11px] font-extrabold ${valColor} mb-1">${item.score}</span>
+                    <div class="w-full max-w-[36px] h-full flex items-end justify-center">
+                      <div
+                        class="bar-fill w-full rounded-t-lg ${barBg} shadow-2xs"
+                        style="height: ${Math.max(4, item.score)}%;"
+                      ></div>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+
+          <!-- X-Axis Labels -->
+          <div class="flex items-center justify-around gap-1 pl-7 pr-2 pt-2">
+            ${items.map(item => `
+              <span class="flex-1 text-center text-[11px] font-semibold text-slate-600 truncate" title="${item.fullLabel}">
+                ${item.label}
+              </span>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      /**
+       * Helper to build Card 5's Grouped Pre-Test vs Post-Test Bar Graph
+       */
+      function buildPrePostGroupedChart(items) {
+        return `
+          <div class="relative h-44 pt-5 pb-1 pl-7 pr-2 border-b border-slate-200 bg-slate-50/60 rounded-xl">
+            <span class="absolute left-1.5 top-1 text-[10px] font-semibold text-slate-400 select-none">100</span>
+            <span class="absolute left-1.5 text-[10px] font-bold text-red-600 select-none" style="bottom: calc(${KKM_THRESHOLD}% - 6px);">80</span>
+            <span class="absolute left-2.5 bottom-1 text-[10px] font-semibold text-slate-400 select-none">0</span>
+
+            <!-- Dashed KKM 80 Line -->
+            <div
+              class="absolute left-7 right-2 border-t border-dashed border-red-500/80 pointer-events-none z-10"
+              style="bottom: ${KKM_THRESHOLD}%;"
+            ></div>
+
+            <!-- Grouped Bars (Pre vs Post) -->
+            <div class="relative w-full h-full flex items-end justify-around gap-1.5 z-20">
+              ${items.map((item, idx) => {
+                const postPassed = item.post >= KKM_THRESHOLD;
+                const postBarClass = postPassed ? 'bg-emerald-500' : 'bg-amber-500';
+                const postTextClass = postPassed ? 'text-emerald-700' : 'text-amber-700';
+
+                return `
+                  <div
+                    data-card-bar="prePost:${idx}"
+                    class="bar-trigger flex-1 h-full flex flex-col items-center justify-end cursor-pointer"
+                  >
+                    <div class="flex items-center gap-1 mb-1 text-[10px] font-extrabold">
+                      <span class="text-slate-500">${item.pre}</span>
+                      <span class="text-slate-300">/</span>
+                      <span class="${postTextClass}">${item.post}</span>
+                    </div>
+                    <div class="w-full max-w-[42px] h-full flex items-end justify-center gap-1">
+                      <!-- Pre-Test Bar -->
+                      <div
+                        class="bar-fill flex-1 rounded-t-md bg-slate-400"
+                        style="height: ${Math.max(4, item.pre)}%;"
+                      ></div>
+                      <!-- Post-Test Bar -->
+                      <div
+                        class="bar-fill flex-1 rounded-t-md ${postBarClass}"
+                        style="height: ${Math.max(4, item.post)}%;"
+                      ></div>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+
+          <!-- X-Axis Labels -->
+          <div class="flex items-center justify-around gap-1 pl-7 pr-2 pt-2">
+            ${items.map(item => `
+              <span class="flex-1 text-center text-[11px] font-semibold text-slate-600 truncate" title="${item.fullLabel}">
+                ${item.label}
+              </span>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      function renderTrainingCards(metrics) {
+        const t = currentAgent.trainings;
+
+        // Build Card configurations in exact required order 1..6
+        const cardsConfig = [
+          // 1. ASK
+          {
+            key: 'ask',
+            number: '01',
+            title: t.ask.title,
+            subtitle: 'Weekly quiz scores & overall ASK average',
+            avgScore: metrics.askAvg,
+            badgeHtml: `<span class="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">4 Weekly Quizzes</span>`,
+            chartHtml: buildStandardMiniChart(t.ask.items, 'ask')
+          },
+          // 2. Learning Management System (Online Course)
+          {
+            key: 'lms',
+            number: '02',
+            title: t.lms.title,
+            subtitle: 'Online module scores & 100% completion rate',
+            avgScore: metrics.lmsAvg,
+            badgeHtml: `<span class="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">100% Completed</span>`,
+            chartHtml: buildStandardMiniChart(t.lms.items, 'lms')
+          },
+          // 3. Training Softskill & Hardskill
+          {
+            key: 'softHard',
+            number: '03',
+            title: t.softHard.title,
+            subtitle: 'Softskill vs. Hardskill competency comparison',
+            avgScore: metrics.softHardAvg,
+            badgeHtml: `
+              <div class="flex items-center gap-2 text-[11px] font-semibold">
+                <span class="inline-flex items-center gap-1 text-slate-700">
+                  <span class="w-2 h-2 rounded-xs bg-slate-800"></span>Soft: ${formatScore(metrics.softAvg)}
+                </span>
+                <span class="inline-flex items-center gap-1 text-red-700">
+                  <span class="w-2 h-2 rounded-xs bg-red-600"></span>Hard: ${formatScore(metrics.hardAvg)}
+                </span>
+              </div>
+            `,
+            chartHtml: buildStandardMiniChart(t.softHard.items, 'softHard', (item) => {
+              if (item.score < KKM_THRESHOLD) return 'bg-amber-500';
+              return item.group === 'Softskill' ? 'bg-slate-800' : 'bg-red-600';
+            })
+          },
+          // 4. Training Reguler
+          {
+            key: 'reguler',
+            number: '04',
+            title: t.reguler.title,
+            subtitle: 'Regular batch scores across service curriculum',
+            avgScore: metrics.regulerAvg,
+            badgeHtml: `<span class="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">3 Batches</span>`,
+            chartHtml: buildStandardMiniChart(t.reguler.items, 'reguler')
+          },
+          // 5. Pre-PostTest
+          {
+            key: 'prePost',
+            number: '05',
+            title: t.prePost.title,
+            subtitle: 'Pre-Test (slate) vs. Post-Test (emerald) score growth',
+            avgScore: metrics.postAvg,
+            avgLabelPrefix: 'Post Avg:',
+            badgeHtml: `
+              <span class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                +${formatScore(metrics.prePostGain)} pts Avg Gain
+              </span>
+            `,
+            chartHtml: buildPrePostGroupedChart(t.prePost.items)
+          },
+          // 6. Tryout Results
+          {
+            key: 'tryout',
+            number: '06',
+            title: t.tryout.title,
+            subtitle: 'Historical results and latest device submission · Pass mark 80',
+            avgScore: metrics.tryoutAvg,
+            badgeHtml: `<span class="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">KKM: 80.0</span>`,
+            chartHtml: buildStandardMiniChart(t.tryout.items, 'tryout')
+          }
+        ];
+
+        trainingCardsGrid.innerHTML = cardsConfig.map(card => {
+          const passed = card.avgScore >= KKM_THRESHOLD;
+          const scorePillClass = passed
+            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+            : 'bg-amber-50 text-amber-700 border-amber-200';
+
+          return `
+            <article
+              data-card-key="${card.key}"
+              tabindex="0"
+              role="button"
+              aria-label="Open details for ${card.title}"
+              class="training-card bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 flex flex-col justify-between cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500"
+            >
+              <!-- Card Header -->
+              <div>
+                <div class="flex items-start justify-between gap-3 mb-2">
+                  <div class="flex items-center gap-2">
+                    <span class="w-6 h-6 rounded-lg bg-slate-900 text-white text-[11px] font-bold flex items-center justify-center shrink-0">
+                      ${card.number}
+                    </span>
+                    <h3 class="text-sm sm:text-base font-bold text-slate-900 leading-snug">
+                      ${card.title}
+                    </h3>
+                  </div>
+
+                  <!-- Category Average Badge -->
+                  <div class="shrink-0 px-2.5 py-1 rounded-lg border text-xs font-extrabold ${scorePillClass}">
+                    ${card.avgLabelPrefix ? `<span class="font-semibold opacity-80 mr-0.5">${card.avgLabelPrefix}</span>` : 'Avg: '}${formatScore(card.avgScore)}
+                  </div>
+                </div>
+
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3.5">
+                  <p class="text-xs text-slate-500">${card.subtitle}</p>
+                  ${card.badgeHtml}
+                </div>
+              </div>
+
+              <!-- Card Bar Graph -->
+              <div>
+                ${card.chartHtml}
+              </div>
+
+              <!-- Card Footer Action Hint -->
+              <div class="mt-3.5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                <span class="font-semibold ${passed ? 'text-emerald-700' : 'text-amber-700'}">
+                  ${passed ? '● Passed Standard (≥ 80)' : '▲ Below KKM Standard (< 80)'}
+                </span>
+                <span class="font-semibold text-slate-600 hover:text-red-600 inline-flex items-center gap-1">
+                  <span>Session Details</span>
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </span>
+              </div>
+            </article>
+          `;
+        }).join('');
+
+        // Attach Tooltip Events to All Mini Card Bars
+        const miniBars = trainingCardsGrid.querySelectorAll('[data-card-bar]');
+        miniBars.forEach(barEl => {
+          const [catKey, idxStr] = barEl.getAttribute('data-card-bar').split(':');
+          const idx = Number(idxStr);
+          const item = currentAgent.trainings[catKey].items[idx];
+
+          let payload;
+          if (catKey === 'prePost') {
+            const delta = item.post - item.pre;
+            const passed = item.post >= KKM_THRESHOLD;
+            payload = {
+              title: item.fullLabel,
+              subtitle: `Date: ${item.date}`,
+              rows: [
+                { label: 'Pre-Test Score', value: `${item.pre} / 100`, colorClass: 'text-slate-300' },
+                { label: 'Post-Test Score', value: `${item.post} / 100`, colorClass: passed ? 'text-emerald-400' : 'text-amber-400' },
+                { label: 'Improvement', value: `+${delta} pts`, colorClass: 'text-emerald-400' },
+                { label: 'Status', value: passed ? 'PASSED' : 'REMEDIAL', colorClass: passed ? 'text-emerald-400' : 'text-amber-400' }
+              ]
+            };
+          } else {
+            const passed = item.score >= KKM_THRESHOLD;
+            const extraRows = [];
+            if (item.group) {
+              extraRows.push({ label: 'Competency Type', value: item.group, colorClass: 'text-slate-200' });
+            }
+            if (item.completion) {
+              extraRows.push({ label: 'Course Completion', value: item.completion, colorClass: 'text-emerald-400' });
+            }
+            payload = {
+              title: item.fullLabel,
+              subtitle: `Date: ${item.date}`,
+              rows: [
+                ...extraRows,
+                { label: 'Score', value: `${item.score} / 100`, colorClass: passed ? 'text-emerald-400' : 'text-amber-400' },
+                { label: 'KKM Benchmark', value: '80.0', colorClass: 'text-slate-300' },
+                { label: 'Status', value: passed ? 'PASSED' : 'REMEDIAL', colorClass: passed ? 'text-emerald-400' : 'text-amber-400' }
+              ]
+            };
+          }
+
+          barEl.addEventListener('mouseenter', (e) => showBarTooltip(e, payload));
+          barEl.addEventListener('mousemove', (e) => positionTooltip(e.clientX, e.clientY));
+          barEl.addEventListener('mouseleave', hideBarTooltip);
+          barEl.addEventListener('touchstart', (e) => showBarTooltip(e, payload), { passive: true });
+        });
+
+        // Attach Click & Keyboard Events to Cards to Open Detail Modal
+        const cardEls = trainingCardsGrid.querySelectorAll('[data-card-key]');
+        cardEls.forEach(cardEl => {
+          const catKey = cardEl.getAttribute('data-card-key');
+          cardEl.addEventListener('click', () => {
+            hideBarTooltip();
+            openCategoryModal(catKey);
+          });
+          cardEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              hideBarTooltip();
+              openCategoryModal(catKey);
+            }
+          });
+        });
+      }
+
+      // ===================================================================
+      // 5. SESSION DETAIL MODAL LOGIC
+      // ===================================================================
+      function openCategoryModal(categoryKey) {
+        const training = currentAgent.trainings[categoryKey];
+        if (!training) return;
+
+        modalCategoryTag.textContent = training.platform;
+        modalAgentTag.textContent = `${currentAgent.name} (${currentAgent.nik})`;
+        modalTitle.textContent = training.title;
+        modalSubtitle.textContent = training.subtitle;
+
+        if (categoryKey === 'prePost') {
+          const preAvg = mean(training.items.map(i => i.pre));
+          const postAvg = mean(training.items.map(i => i.post));
+          const gain = postAvg - preAvg;
+          const passed = postAvg >= KKM_THRESHOLD;
+
+          modalSummaryStrip.innerHTML = `
+            <div class="bg-white rounded-xl p-2.5 border border-slate-200">
+              <span class="block text-[10px] font-bold uppercase text-slate-400">Pre-Test Avg</span>
+              <span class="text-base font-extrabold text-slate-700">${formatScore(preAvg)}</span>
+            </div>
+            <div class="bg-white rounded-xl p-2.5 border border-slate-200">
+              <span class="block text-[10px] font-bold uppercase text-slate-400">Post-Test Avg</span>
+              <span class="text-base font-extrabold ${passed ? 'text-emerald-600' : 'text-amber-600'}">${formatScore(postAvg)}</span>
+            </div>
+            <div class="bg-white rounded-xl p-2.5 border border-slate-200">
+              <span class="block text-[10px] font-bold uppercase text-slate-400">Average Gain</span>
+              <span class="text-base font-extrabold text-emerald-600">+${formatScore(gain)} pts</span>
+            </div>
+          `;
+
+          modalTableHead.innerHTML = `
+            <th class="py-2.5 px-3.5">Module</th>
+            <th class="py-2.5 px-3.5">Date</th>
+            <th class="py-2.5 px-3.5">Platform</th>
+            <th class="py-2.5 px-3.5 text-right">Pre &rarr; Post</th>
+            <th class="py-2.5 px-3.5 text-center">Status</th>
+          `;
+
+          modalTableBody.innerHTML = training.items.map(item => {
+            const passedItem = item.post >= KKM_THRESHOLD;
+            const delta = item.post - item.pre;
+            return `
+              <tr class="hover:bg-slate-50/90">
+                <td class="py-3 px-3.5 font-semibold text-slate-900">${item.fullLabel}</td>
+                <td class="py-3 px-3.5 text-xs text-slate-500 whitespace-nowrap">${item.date}</td>
+                <td class="py-3 px-3.5 text-xs text-slate-600">${item.trainer}</td>
+                <td class="py-3 px-3.5 text-right font-mono font-bold whitespace-nowrap">
+                  <span class="text-slate-400">${item.pre}</span>
+                  <span class="text-slate-400 mx-1">&rarr;</span>
+                  <span class="text-slate-900">${item.post}</span>
+                  <span class="ml-1 text-[11px] text-emerald-600">(+${delta})</span>
+                </td>
+                <td class="py-3 px-3.5 text-center">
+                  <span class="inline-flex px-2 py-0.5 rounded-full text-[11px] font-bold ${passedItem ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">
+                    ${passedItem ? 'Passed' : 'Remedial'}
+                  </span>
+                </td>
+              </tr>
+            `;
+          }).join('');
+        } else {
+          const scores = training.items.map(i => i.score);
+          const avg = mean(scores);
+          const highest = Math.max(...scores);
+          const passed = avg >= KKM_THRESHOLD;
+
+          modalSummaryStrip.innerHTML = `
+            <div class="bg-white rounded-xl p-2.5 border border-slate-200">
+              <span class="block text-[10px] font-bold uppercase text-slate-400">Category Average</span>
+              <span class="text-base font-extrabold ${passed ? 'text-emerald-600' : 'text-amber-600'}">${formatScore(avg)} / 100</span>
+            </div>
+            <div class="bg-white rounded-xl p-2.5 border border-slate-200">
+              <span class="block text-[10px] font-bold uppercase text-slate-400">Highest Score</span>
+              <span class="text-base font-extrabold text-slate-900">${highest} / 100</span>
+            </div>
+            <div class="bg-white rounded-xl p-2.5 border border-slate-200">
+              <span class="block text-[10px] font-bold uppercase text-slate-400">Overall Status</span>
+              <span class="text-xs font-extrabold uppercase ${passed ? 'text-emerald-600' : 'text-amber-600'}">
+                ${passed ? 'Passed (KKM 80)' : 'Below KKM (80)'}
+              </span>
+            </div>
+          `;
+
+          modalTableHead.innerHTML = `
+            <th class="py-2.5 px-3.5">Session / Module</th>
+            <th class="py-2.5 px-3.5">Date</th>
+            <th class="py-2.5 px-3.5">Trainer / Platform</th>
+            <th class="py-2.5 px-3.5 text-right">Score</th>
+            <th class="py-2.5 px-3.5 text-center">Status</th>
+          `;
+
+          modalTableBody.innerHTML = training.items.map(item => {
+            const passedItem = item.score >= KKM_THRESHOLD;
+            return `
+              <tr class="hover:bg-slate-50/90">
+                <td class="py-3 px-3.5">
+                  <div class="font-semibold text-slate-900">${item.fullLabel}</div>
+                  ${item.group ? `<span class="inline-block mt-0.5 text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">${item.group}</span>` : ''}
+                  ${item.completion ? `<span class="inline-block mt-0.5 text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700">Completion: ${item.completion}</span>` : ''}
+                </td>
+                <td class="py-3 px-3.5 text-xs text-slate-500 whitespace-nowrap">${item.date}</td>
+                <td class="py-3 px-3.5 text-xs text-slate-600">${item.trainer}</td>
+                <td class="py-3 px-3.5 text-right font-mono font-extrabold text-slate-900 whitespace-nowrap">
+                  ${item.score} <span class="text-xs font-normal text-slate-400">/ 100</span>
+                </td>
+                <td class="py-3 px-3.5 text-center">
+                  <span class="inline-flex px-2 py-0.5 rounded-full text-[11px] font-bold ${passedItem ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">
+                    ${passedItem ? 'Passed' : 'Remedial'}
+                  </span>
+                </td>
+              </tr>
+            `;
+          }).join('');
+        }
+
+        detailModal.classList.remove('hidden');
+        detailModal.classList.add('flex');
+      }
+
+      function closeCategoryModal() {
+        detailModal.classList.add('hidden');
+        detailModal.classList.remove('flex');
+      }
+
+      // ===================================================================
+      // MASTER RENDER & EVENT LISTENERS
+      // ===================================================================
+      function renderDashboard() {
+        const items = currentAgent.trainings.tryout.items;
+        const past = items.filter(x => !x.practice);
+        try {
+          const r = JSON.parse(localStorage.getItem('latest-practice:' + currentAgent.id));
+          if (r && Number.isInteger(r.score) && r.score >= 0 && r.score <= 100 && Number.isFinite(Date.parse(r.submittedAt))) {
+            past.push({practice:true,label:'Weekly',fullLabel:'Weekly service readiness',score:r.score,date:new Date(r.submittedAt).toLocaleDateString('en-GB'),trainer:'Training portal'});
+          }
+        } catch {}
+        currentAgent.trainings.tryout.items = past;
+        const metrics = getCategoryMetrics(currentAgent);
+        renderProfileAndKPIs(metrics);
+        renderMainOverviewChart(metrics);
+        renderTrainingCards(metrics);
+      }
+
+      // Copy NIK Button (using execCommand for iFrame compatibility)
+      copyNikBtn.addEventListener('click', () => {
+        const tempInput = document.createElement('input');
+        tempInput.value = currentAgent.nik;
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        try {
+          document.execCommand('copy');
+          showToast(`NIK ${currentAgent.nik} copied to clipboard`);
+        } catch (err) {
+          showToast(`NIK: ${currentAgent.nik}`);
+        }
+        document.body.removeChild(tempInput);
+      });
+
+      // Modal Dismissal Handlers
+      closeModalBtn.addEventListener('click', closeCategoryModal);
+      closeModalFooterBtn.addEventListener('click', closeCategoryModal);
+      detailModal.addEventListener('click', (e) => {
+        if (e.target === detailModal) closeCategoryModal();
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !detailModal.classList.contains('hidden')) {
+          closeCategoryModal();
+        }
+      });
+
+      // Hide tooltip on scroll or outside tap
+      window.addEventListener('scroll', hideBarTooltip, { passive: true });
+      document.addEventListener('touchstart', (e) => {
+        if (!e.target.closest('.bar-trigger')) {
+          hideBarTooltip();
+        }
+      }, { passive: true });
+
+      // Initialize immediately on load
+      window.addEventListener('practice-result', renderDashboard);
+      initAgentSelector();
+      renderDashboard();
+    })();
+  </script>
+<script type="module" src="/tryout.js"></script>
+</body>
+</html>

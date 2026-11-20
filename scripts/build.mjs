@@ -6,7 +6,7 @@ const root = new URL('../', import.meta.url);
 const output = new URL('dist/', root);
 await mkdir(output, { recursive: true });
 await copyFile(new URL('index.html', root), new URL('index.html', output));
-for (const file of ['survey-monitor.js', 'survey-feed-template.gs', 'dashboard-period.js', 'dashboard-insights.js', 'dashboard-downloads.js', 'dashboard-workspace.js', 'dashboard-workspace.css']) {
+for (const file of ['training-results.html', 'survey-monitor.js', 'survey-feed-template.gs', 'dashboard-period.js', 'dashboard-insights.js', 'dashboard-downloads.js', 'dashboard-workspace.js', 'dashboard-workspace.css']) {
   await copyFile(new URL(file, root), new URL(file, output));
 }
 const bytes = await readFile(new URL('index.html', output));

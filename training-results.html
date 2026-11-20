@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Training results · OmniKnow</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font:16px/1.5 system-ui,sans-serif;color:#17283e;background:#f3f5f8}header{background:#102238;color:white;padding:17px max(5vw,24px);font-weight:700}main{width:min(960px,92vw);margin:48px auto}a{color:#15528f}h1{font-size:clamp(28px,5vw,44px);line-height:1.15;margin:20px 0 8px}h2{font-size:18px}section{background:white;border-radius:16px;padding:24px;margin-top:24px;border:1px solid #d6dfe7;overflow:auto}button,.cta{display:inline-block;padding:9px 16px;border:0;border-radius:8px;background:#192f4a;color:white;text-decoration:none;font:inherit;cursor:pointer}table{width:100%;border-collapse:collapse;text-align:left}th,td{padding:10px;border-bottom:1px solid #dce3ed}th{color:#435669;font-size:13px}p{color:#45576a}.actions{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+</style></head><body><header>OmniKnow / Training results</header><main><a href="/">← Dashboard</a>
+<h1>Weekly tryout results</h1><p>Latest submitted service readiness score for each synthetic agent. The pass mark is 80/100.</p>
+<div class="actions"><a class="cta" href="https://omniknow-training.vercel.app/">Open training portal ↗</a><button id="refresh">Refresh results</button></div>
+<section aria-label="Shared results"><p role="status" id="status">Loading results…</p><table hidden><thead><tr><th>Agent</th><th>Score</th><th>Result</th><th>Submitted (WIB)</th></tr></thead><tbody></tbody></table></section></main>
+<script>
+const table=document.querySelector('table'), statusText=document.querySelector('#status'), refresh=document.querySelector('#refresh');
+async function load(){
+  refresh.disabled=true;statusText.textContent='Loading results…';table.hidden=true;
+  try{
+    const response=await fetch('/api/training-results',{cache:'no-store',signal:AbortSignal.timeout(15000)});
+    if(!response.ok)throw Error();
+    const {results}=await response.json();
+    table.tBodies[0].replaceChildren();
+    for(const record of results){
+      const row=table.tBodies[0].insertRow();
+      const date=new Date(record.submittedAt).toLocaleString('en-GB',{timeZone:'Asia/Jakarta'});
+      for(const value of [record.name,record.score+'/100',record.result,date])row.insertCell().textContent=value;
+    }
+    table.hidden=!results.length;
+    statusText.textContent=results.length?'Showing the latest shared submission per agent.':'No submissions yet. Complete the tryout in the training portal to see the first result.';
+  }catch{statusText.textContent='Unable to load shared results. Refresh to try again.';}
+  finally{refresh.disabled=false;}
+}
+refresh.onclick=load;load();
+</script></body></html>
