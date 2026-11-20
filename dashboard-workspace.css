@@ -138,3 +138,10 @@
 @media (min-width:901px) {
   .dw-tabs.dw-tabs-local { grid-template-columns:.8fr 1fr 1.5fr 1.15fr 1.15fr 1.1fr .7fr; }
 }
+.ask-report-findings{margin:12px 0}
+.ask-report-findings summary{cursor:pointer;font-weight:650}
+.ask-report-findings dd{margin:0 0 8px}
+.ask-report-table-scroll{overflow-x:auto}
+.ask-report-trend table{width:100%;border-collapse:collapse}
+.ask-report-trend th,.ask-report-trend td{padding:8px;text-align:left;vertical-align:top}
+.ask-report-trend .ak-delta{display:block}

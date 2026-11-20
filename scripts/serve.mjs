@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { handleSurveyRequest } from '../api/survey-feed.js';
 
 const args = process.argv.slice(2);
@@ -14,8 +14,12 @@ const entry = new URL(isPreview ? '../dist/index.html' : '../index.html', import
 try { await readFile(entry); } catch { throw new Error(isPreview ? 'Build first: npm run build' : 'Missing index.html'); }
 
 const askDirectoryIndex = args.indexOf('--ask-dir');
-const askDirectory = askDirectoryIndex >= 0 ? args[askDirectoryIndex + 1] : null;
-if (askDirectoryIndex >= 0 && !askDirectory) throw new Error('Provide a directory after --ask-dir.');
+const explicitAskDirectory = askDirectoryIndex >= 0 ? args[askDirectoryIndex + 1] : null;
+if (askDirectoryIndex >= 0 && !explicitAskDirectory) throw new Error('Provide a directory after --ask-dir.');
+const bundledAskDirectory = new URL('../private-data/ask/', import.meta.url);
+const hasBundledAskDirectory = !isPreview && !explicitAskDirectory &&
+  await stat(bundledAskDirectory).then(info => info.isDirectory(), () => false);
+const askDirectory = explicitAskDirectory || (hasBundledAskDirectory ? fileURLToPath(bundledAskDirectory) : null);
 const askReader = fileURLToPath(new URL('./read-ask-summary.py', import.meta.url));
 const askDetailsEnabled = args.includes('--ask-details') && !isPreview;
 const askData = askDirectory

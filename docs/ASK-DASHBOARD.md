@@ -27,7 +27,7 @@ ASK Activity Category reuses existing linked-activity scope. ASK Performance Win
 
 ## Local slide 2 report
 
-Run `npm run dev -- --port 5175 --ask-dir "/path/to/private/ASK"` with Python 3 installed. The folder can contain the original August–October 2026 workbooks or files named `ASK_YYYY-MM.xlsx`. Restart the server after adding or replacing a workbook. The local endpoint returns monthly aggregates only and is unavailable in the deployment gateway. Workbooks stay outside the repository. The local report has its own monthly selector and uses the exact previous calendar month when available.
+Run `npm run dev -- --port 5175 --ask-dir "/path/to/private/ASK"` with Python 3 installed. The folder can contain the original August–October 2026 workbooks or files named `ASK_YYYY-MM.xlsx`. Restart the server after adding or replacing a workbook. The local endpoint returns monthly aggregates only and is unavailable in the deployment gateway. On branch `manda`, the private repository includes the three ASK workbooks in `private-data/ask/`. Run `npm run dev` with Python 3 to load them automatically. Use `--ask-dir` to select another source folder. The static build excludes the workbooks. The local report has its own monthly selector and uses the exact previous calendar month when available.
 
 The local report supports CTP, GraPARI model, Area, Region, and Unit. GraPARI uses Area → Region → Unit. Call Center and E-Care use Region → Unit. The unit selector uses the source CTP, area, region, unit ID, and unit name together. The same selected location is used for the reporting period and the comparison. Multi-month quadrant counts use each CSR's latest valid placement across the period. Only aggregated counts are returned.
 

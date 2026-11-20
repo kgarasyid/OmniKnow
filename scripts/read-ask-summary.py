@@ -13,6 +13,22 @@ DIMENSIONS = ("attitude", "skill", "knowledge")
 REQUIRED = ("nik siad", "job", "ctp", "business model", "kuadran ask", "area", "regional", "unit id", "unit name", *DIMENSIONS)
 
 
+# Published findings from slides 4–5 of Monthly Update ASK, September 2026.
+SEPTEMBER_FINDINGS = {
+    "national": [
+        ["Etika Pelayanan", "Responsiveness", "Penampilan"],
+        ["Holding Time", "Gali Informasi", "Kejelasan Informasi"],
+        ["Edukasi Layanan", "Solusi dan Konfirmasi", "Cross Selling (Non Komplain)"],
+    ],
+    "attitudeBySegment": {
+        "Walk In Mitra": [["Etika Pelayanan", 80.7], ["Responsiveness", 96.6], ["Penampilan", 97.1]],
+        "Walk In TOMO": [["Etika Pelayanan", 78.1], ["Responsiveness", 96.9], ["Penampilan", 97.8]],
+        "Call In": [["Etika Pelayanan", 64.7], ["Responsiveness", 97.4]],
+        "E-Care": [["Etika Pelayanan", 88.3], ["Responsiveness", 90.1]],
+    },
+}
+
+
 def empty_group():
     return {"total": 0, "high": [0, 0, 0], "quadrants": {}}
 
@@ -128,6 +144,12 @@ def read_months(folder, include_details=False):
         months[period], placements[period] = summarize(path, include_details)
     if not months:
         raise ValueError("No ASK workbooks found")
+    september = months.get("2026-09")
+    if september and [(group["total"], *group["high"]) for group in september["groups"].values()] == [
+        (1255, 1214, 1198, 1159), (1539, 1429, 1432, 1335),
+        (1123, 552, 953, 816), (1151, 762, 878, 852),
+    ]:
+        september["parameterFindings"] = SEPTEMBER_FINDINGS
     for period, summary in months.items():
         year, month = period.split("-")
         number = int(month)
