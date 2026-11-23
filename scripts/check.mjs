@@ -13,10 +13,10 @@ assert.match(html, /<title>OmniKnow/);
 const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)];
 assert.ok(scripts.length > 0, 'Application script not found.');
 scripts.forEach((match, index) => new Script(match[1], { filename: `inline-script-${index + 1}.js` }));
-for (const file of ['survey-monitor.js', 'survey-feed-template.gs', 'dashboard-period.js', 'dashboard-insights.js', 'dashboard-downloads.js', 'dashboard-workspace.js', 'dashboard-workspace.css']) {
+for (const file of ['survey-monitor.js', 'survey-feed-template.gs', 'dashboard-period.js', 'dashboard-insights.js', 'dashboard-hard-skill.js', 'dashboard-downloads.js', 'dashboard-workspace.js', 'dashboard-workspace.css', 'manrope.woff2', 'manrope-OFL.txt']) {
   const bytes = await readFile(new URL(file, root));
   assert.ok(bytes.equals(await readFile(new URL('dist/' + file, root))), `${file} build differs`);
-  if (!file.endsWith('.css')) new Script(bytes.toString(), {filename:file});
+  if (/\.(js|gs)$/.test(file)) new Script(bytes.toString(), {filename:file});
 }
 console.log(`PASS: ${scripts.length} inline script(s) parse; build is byte-identical (${source.length} bytes).`);
 
@@ -34,7 +34,7 @@ if (process.argv.includes('--live')) {
   const live = Buffer.from(await response.arrayBuffer());
   assert.ok(live.equals(source), `Live deployment differs. Live SHA-256: ${hash(live)}; local: ${hash(source)}. Investigate without overwriting either copy.`);
   console.log(`PASS: current public deployment is byte-identical (${hash(live)}).`);
-  for (const file of ['survey-monitor.js', 'survey-feed-template.gs', 'dashboard-period.js', 'dashboard-insights.js', 'dashboard-downloads.js', 'dashboard-workspace.js', 'dashboard-workspace.css']) {
+  for (const file of ['survey-monitor.js', 'survey-feed-template.gs', 'dashboard-period.js', 'dashboard-insights.js', 'dashboard-hard-skill.js', 'dashboard-downloads.js', 'dashboard-workspace.js', 'dashboard-workspace.css']) {
     const res = await fetch(new URL(file, provenance.publicUrl), {cache:'no-store'});
     assert.equal(res.status, 200);
     assert.ok(Buffer.from(await res.arrayBuffer()).equals(await readFile(new URL(file, root))), `${file} live differs`);

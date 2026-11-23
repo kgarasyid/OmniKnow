@@ -74,3 +74,45 @@ vm.runInContext("askPerformanceWindow='YTD';reportFrom='2026-01-01'",ctx);assert
 assert.equal(run("askShiftDay('2024-02-29',12)"),'2023-02-28');
 assert.ok(run('askComparisonDetails(askStats([]),askStats([]),0)').includes('Belum ada pembanding'));
 console.log('PASS: three High cards; separate coverage; collapsed comparison details; restored category/window filters; month-end and YTD comparison bounds.');
+
+vm.runInContext(`
+ const fictionalAskMonth = (callIn, eCare) => ({
+  groups: {
+   'Call In': {total: callIn, high: [0, callIn, callIn], quadrants: {}},
+   'E-Care': {total: eCare, high: [eCare, eCare, eCare], quadrants: {}},
+  },
+  locations: {}, excluded: 0, incomplete: 0, unassigned: 0,
+ });
+ localAskReport = {
+  '2025-12': fictionalAskMonth(1, 1),
+  '2026-01': fictionalAskMonth(2, 2),
+  '2026-02': fictionalAskMonth(2, 0),
+  '2026-04': fictionalAskMonth(2, 2),
+  '2026-05': fictionalAskMonth(2, 2),
+ };
+ localAskMonth = '2026-04';
+`,ctx);
+const readHighChart = ()=>run('localAskSlideTwo()').match(/<svg class="ask-high-chart"[\s\S]*?<\/svg>/)?.[0];
+assert.equal(readHighChart(),undefined);
+const missingComparison = run('localAskSlideTwo()');
+assert.match(missingComparison,/Pembanding belum tersedia/);
+vm.runInContext("localAskMonth='2026-02'",ctx);
+const monthlyComparison = run('localAskSlideTwo()');
+assert.match(monthlyComparison,/Attitude lulus<\/span><strong>0 \(0%\)<\/strong>/);
+assert.match(monthlyComparison,/Sebelumnya 2 \(50%\) dari 4 CSR/);
+assert.match(monthlyComparison,/Turun 50.0 pp/);
+vm.runInContext("localAskWindow='ytd'",ctx);
+const chart = readHighChart();
+assert.match(chart, /is-missing"[^>]+>Mar<\/text>/);
+assert.match(chart, /Attitude 0%/);
+assert.match(chart, /class="ask-high-attitude" d="M[^ML]+L[^ML]+M[^ML]+L[^ML]+"/);
+vm.runInContext("localAskChannel='E-Care'",ctx);
+const scopedChart = readHighChart();
+assert.match(scopedChart, /Tren High bulanan, Januari 2026 sampai Mei 2026/);
+assert.match(scopedChart, /is-missing"[^>]+>Feb<\/text>/);
+assert.match(scopedChart, /class="ask-high-attitude" d="M[^ML]+M[^ML]+L[^ML]+"/);
+vm.runInContext("localAskWindow='quarter'",ctx);
+assert.equal(readHighChart(),undefined);
+vm.runInContext("localAskWindow='semester'",ctx);
+assert.equal(readHighChart(),undefined);
+console.log('PASS: local ASK shows concise month-over-month comparisons and limits illustrated High trends to YTD, preserving scoped calendar gaps.');

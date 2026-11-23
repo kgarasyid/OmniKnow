@@ -4,6 +4,9 @@ import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { handleSurveyRequest } from '../api/survey-feed.js';
+import { localLearningReport } from './local-learning.mjs';
+import { hardSkillReport } from './hard-skill-report.mjs';
+import { askUnitDetails, localAskDrilldown } from './local-ask-drilldown.mjs';
 
 const args = process.argv.slice(2);
 const isPreview = args.includes('--dist');
@@ -23,12 +26,35 @@ const askDirectory = explicitAskDirectory || (hasBundledAskDirectory ? fileURLTo
 const askReader = fileURLToPath(new URL('./read-ask-summary.py', import.meta.url));
 const askDetailsEnabled = args.includes('--ask-details') && !isPreview;
 const askData = askDirectory
-  ? promisify(execFile)('python3', [askReader, askDirectory, ...(askDetailsEnabled ? ['--details'] : [])],
+  ? promisify(execFile)('python3', ['-B', askReader, askDirectory, ...(askDetailsEnabled ? ['--details'] : [])],
       { timeout: 120_000, maxBuffer: 32 * 1024 * 1024 })
       .then(({stdout}) => {
         const data = JSON.parse(stdout);
         return askDetailsEnabled ? data : {summary:data};
       }).catch(() => null)
+  : null;
+
+async function learningDirectory(source) {
+  const option = '--' + source + '-dir';
+  const index = args.indexOf(option);
+  if (index >= 0) {
+    if (!args[index + 1] || args[index + 1].startsWith('--')) throw new Error('Provide a directory after ' + option);
+    return args[index + 1];
+  }
+  const bundled = new URL('../private-data/' + source + '/', import.meta.url);
+  return await stat(bundled).then(info => info.isDirectory(), () => false) ? fileURLToPath(bundled) : '';
+}
+
+const [trainingDirectory, tryoutDirectory] = isPreview ? ['', ''] :
+  await Promise.all([learningDirectory('training'), learningDirectory('tryout')]);
+const learningData = trainingDirectory || tryoutDirectory
+  ? promisify(execFile)('python3', ['-B', fileURLToPath(new URL('./read-local-learning.py', import.meta.url)),
+      trainingDirectory, tryoutDirectory, askDirectory || ''], {timeout:120_000, maxBuffer:16 * 1024 * 1024})
+      .then(({stdout}) => JSON.parse(stdout))
+      .catch(() => {
+        console.error('Could not read the local Training or Tryout workbooks. Check the input folders and workbook formats.');
+        return null;
+      })
   : null;
 
 function jsonResponse(request, response, status, data) {
@@ -38,30 +64,6 @@ function jsonResponse(request, response, status, data) {
     'Cross-Origin-Resource-Policy': 'same-origin',
   });
   response.end(request.method === 'HEAD' ? undefined : JSON.stringify(data));
-}
-
-function askUnitDetails(data, query) {
-  const from = query.get('from');
-  const to = query.get('to');
-  const unit = query.get('unit');
-  const quadrant = query.get('quadrant');
-  const segment = query.get('segment');
-  const isMonth = value => /^\d{4}-(?:0[1-9]|1[0-2])$/.test(value ?? '');
-  let location;
-  try { location = JSON.parse(unit); } catch { return null; }
-  if (!Array.isArray(location) || location.length !== 5 || !location.every(field => typeof field==='string') ||
-      !isMonth(from) || !isMonth(to) || from>to || !/^(?:HAHAKO|HALOKO|LOHAKO|LOLOKO) \((?:HA|LA)\)$|^BELUM TERSEDIA$/.test(quadrant ?? '')) return null;
-  const key = JSON.stringify(location);
-  const latest = new Map();
-  const periods = Object.keys(data.placements).sort().filter(month=>month>=from&&month<=to);
-  if (!periods.some(month=>Object.hasOwn(data.summary[month].locations,key))) return null;
-  for (const month of periods) {
-    for (const [id, placement] of Object.entries(data.placements[month])) latest.set(id, {placement,month});
-  }
-  return Array.from(latest.values()).filter(({placement:[group,label,assigned]}) =>
-    label===quadrant && JSON.stringify(assigned)===key && (!segment || segment===group))
-    .map(({placement:[group,,,name,scores],month})=>({name,scores,segment:group,month}))
-    .sort((a,b)=>a.name.localeCompare(b.name,'id'));
 }
 
 // Serve only the application. Repository files and local credentials are never exposed.
@@ -83,6 +85,17 @@ const server = createServer(async (request, response) => {
     return response.end('Bad request');
   }
   const path = url.pathname;
+  if (learningData && ['/api/local-learning','/api/local-hard-skill'].includes(path)) {
+    const {host, origin, 'sec-fetch-site':site} = request.headers;
+    if (![`127.0.0.1:${port}`, `localhost:${port}`].includes(host) ||
+        (site && site !== 'same-origin' && site !== 'none') || (origin && origin !== `http://${host}`)) {
+      return jsonResponse(request, response, 403, {error:'Local access only'});
+    }
+    const data = await learningData;
+    if (!data) return jsonResponse(request, response, 503, {error:'Local learning workbooks unavailable'});
+    const report = path === '/api/local-hard-skill' ? hardSkillReport(data, url.searchParams) : localLearningReport(data, url.searchParams);
+    return jsonResponse(request, response, report ? 200 : 400, report ?? {error:'Invalid period'});
+  }
   if (['/local-grapari-map', '/api/local-grapari', '/api/local-grapari-locations'].includes(path)) {
     const hosts = [`127.0.0.1:${port}`, `localhost:${port}`];
     const site = request.headers['sec-fetch-site'];
@@ -106,18 +119,23 @@ const server = createServer(async (request, response) => {
     const data = await askData;
     return jsonResponse(request,response,data ? 200 : 503,data?.summary ?? {error:'ASK workbook unavailable'});
   }
-  if (askData && askDetailsEnabled && path === '/api/local-ask-unit-details') {
+  if (askData && askDetailsEnabled && ['/api/local-ask-unit-details', '/api/local-ask-drilldown'].includes(path)) {
     const hosts = [`127.0.0.1:${port}`, `localhost:${port}`];
-    const site = request.headers['sec-fetch-site'];
-    if (!hosts.includes(request.headers.host) || (site && site !== 'same-origin' && site !== 'none')) {
+    const {host, origin, 'sec-fetch-site':site} = request.headers;
+    if (!hosts.includes(host) || (site && site !== 'same-origin' && site !== 'none') || (origin && origin !== `http://${host}`)) {
       return jsonResponse(request,response,403,{error:'Local access only'});
     }
     const data = await askData;
     if (!data) return jsonResponse(request,response,503,{error:'ASK workbook unavailable'});
-    const rows = askUnitDetails(data,url.searchParams);
-    return jsonResponse(request,response,rows ? 200 : 400,rows ?? {error:'Invalid ASK unit scope'});
+    const report = path === '/api/local-ask-unit-details'
+      ? askUnitDetails(data,url.searchParams) : localAskDrilldown(data,url.searchParams);
+    return jsonResponse(request,response,report ? 200 : 400,report ?? {error:'Invalid ASK scope'});
   }
   const assets = {'/dashboard-period.js':'text/javascript; charset=utf-8','/dashboard-insights.js':'text/javascript; charset=utf-8','/dashboard-downloads.js':'text/javascript; charset=utf-8','/survey-monitor.js':'text/javascript; charset=utf-8','/survey-feed-template.gs':'text/plain; charset=utf-8','/dashboard-workspace.js':'text/javascript; charset=utf-8','/dashboard-workspace.css':'text/css; charset=utf-8'};
+  if (!isPreview) assets['/ringkasan-ask.html'] = 'text/html; charset=utf-8';
+  assets['/manrope.woff2'] = 'font/woff2';
+  assets['/manrope-OFL.txt'] = 'text/plain; charset=utf-8';
+  assets['/dashboard-hard-skill.js'] = 'text/javascript; charset=utf-8';
   if (path !== '/' && path !== '/index.html' && !assets[path]) {
     response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
     return response.end('Not found');

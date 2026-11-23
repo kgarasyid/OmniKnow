@@ -1,9 +1,23 @@
 // Dashboard presentation. Existing roster and survey calculations remain the source of truth.
-const DASH_TABS=['Summary','ASK Performance','Training Hardskill & Soft skill','Training Reguler','Test Evaluation','Raw Data Table All'];
-const DASH_GRAPARI_TAB = DASH_TABS.length;
+const DASH_VIEWS=['Summary','ASK Performance','Training Hardskill & Soft skill','Training Reguler','Test Evaluation','Raw Data Table All'];
+const DASH_CHANNELS = [
+  {value:'All CTPs', label:'CTP'},
+  {value:'GraPARI', label:'GraPARI'},
+  {value:'Contact Center', label:'Call Center'},
+  {value:'E-Care', label:'E-Care'},
+];
 const dashboardHasLocalMap = () => ['127.0.0.1', 'localhost', '[::1]'].includes(globalThis.location?.hostname);
 
 let dashboardTab=0,dashboardSub={2:'Hardskill',3:'ACS Booster',4:'Pre Test',5:'Agents'},dashboardGroup='Area',dashboardRawQuery='',dashboardRawPage=0;
+let dashboardTrial = true;
+const DASHBOARD_TRIAL_DEFAULT_START = '2026-08';
+const DASHBOARD_TRIAL_DEFAULT_MONTH = '2026-10';
+let dashboardTrialWindow = 'month';
+let dashboardTrialRangeStart = DASHBOARD_TRIAL_DEFAULT_START;
+let dashboardAskReportOpen = true;
+const dashboardOpenKpis = new Set();
+const dashboardLearningOpen = new Set();
+let dashboardAskDrillState = null;
 const DASH_PROGRAMS=['Hardskill','Soft skill','ACS Booster','Bad Ticket','Reguler Try Out'];
 function dashboardProgramRows(xs,program){
   const linked=state.activities.filter(a=>a.category===program);
@@ -19,21 +33,288 @@ function dashGroupControls(){return `<div class="cert-tabs" role="group" aria-la
 function dashGroups(xs){return !xs.length?[]:dashboardGroup==='Nat'?[{name:'National',rows:xs}]:assessmentGroups(xs,dashboardGroup)}
 function dashSummary(xs){const paired=assessmentRows(xs),completed=xs.filter(a=>a.complete).length,cert=xs.filter(a=>a.certified).length;return `<div class="dw-metrics">${dashMetric('Agents in scope',xs.length,'Unique roster records',5)}${dashMetric('Training completed',xs.length?pct(completed,xs.length)+'%':'—',completed+' of '+xs.length+' agents',5)}${dashMetric('Average score gain',paired.length?(avg(paired.map(a=>a.post-a.pre))>=0?'+':'')+avg(paired.map(a=>a.post-a.pre)).toFixed(1)+' pp':'—',paired.length+' matched pre/post pairs',4)}${dashMetric('Certified agents',cert, xs.length?pct(cert,xs.length)+'% of filtered roster':'No matching agents',5)}</div><div class="dw-grid">${dashCard('Learning readiness','Roster completion and certification',dashBars([{label:'Training completed',value:completed,display:completed+' / '+xs.length},{label:'Certified',value:cert,display:cert+' / '+xs.length,color:'#374151'},{label:'Training unfinished',value:xs.length-completed,display:xs.length-completed,color:'#C8202E'}],Math.max(1,xs.length)),`<button class="dw-link" data-dash-tab="5">Training details →</button>`)}${dashCard('Where to focus','Counts update with the selected CTP and Area / Site',`<div class="dw-focus"><strong>${xs.length-completed}</strong><span>agents have unfinished training</span><strong>${paired.filter(a=>a.post<70).length}</strong><span>paired agents have post-test scores below 70</span><strong>${xs.filter(a=>a.attitude*.4+a.skill*.3+a.knowledge*.3<80).length}</strong><span>agents have weighted ASK scores below 80</span></div><p class="small">Showcase thresholds guide exploration; they are not official pass rules.</p>`,`<button class="dw-link" data-dash-tab="5">Inspect records →</button>`)}</div>${assessmentDistributions(xs)}${dashCard('Agent distribution','Counts by operational Area / Site or geographic Region',dashBars(dashGroups(xs).map(g=>({label:g.name,value:g.rows.length,unit:'agents'})),Math.max(1,...dashGroups(xs).map(g=>g.rows.length))),dashGroupControls())}`}
 function dashASK(xs){return askDashboard(xs)}
-function dashSubtabs(values){const current=dashboardSub[dashboardTab];return `<div class="dw-subtabs" role="group" aria-label="${el(DASH_TABS[dashboardTab])} sections">${values.map(v=>`<button data-dash-sub="${el(v)}" class="${current===v?'active':''}" aria-pressed="${current===v}">${el(v)}</button>`).join('')}</div>`}
+function dashSubtabs(values){const current=dashboardSub[dashboardTab];return `<div class="dw-subtabs" role="group" aria-label="${el(DASH_VIEWS[dashboardTab])} sections">${values.map(v=>`<button data-dash-sub="${el(v)}" class="${current===v?'active':''}" aria-pressed="${current===v}">${el(v)}</button>`).join('')}</div>`}
 function dashProgram(xs,program){const rows=dashboardProgramRows(xs,program),done=rows.filter(r=>r.status==='Completed'),scored=rows.filter(r=>r.score!==''&&Number.isFinite(Number(r.score)));const groups=[...new Set(rows.map(r=>r.location))];return `<p class="dw-source">${rows.some(r=>r.source==='Dummy program fixture')?'Dummy program showcase · Illustrative assignments and scores; separate from Pre-Post Evaluation.':'Saved activity records · Only explicitly linked attendees and assessments are included.'}</p><div class="dw-metrics">${dashMetric('Participants',new Set(rows.map(r=>r.agent_id)).size,program+' unique agents',5)}${dashMetric('Assignments',rows.length,'One row per agent and activity',5)}${dashMetric('Completed',done.length,rows.length?pct(done.length,rows.length)+'% of assignments':'No assignments',5)}${dashMetric('Average score',scored.length?avg(scored.map(r=>Number(r.score))).toFixed(1):'—',scored.length+' recorded scores / 100',5)}</div><div class="dw-grid">${dashCard('Completion status',program+' assignments',dashBars([{label:'Completed',value:done.length},{label:'Not completed',value:rows.length-done.length,color:'#C8202E'}],Math.max(1,rows.length)))}${dashCard('Participants by Area / Site','Assignment counts, not unique cross-program totals',dashBars(groups.map(g=>({label:g,value:rows.filter(r=>r.location===g).length})),Math.max(1,...groups.map(g=>rows.filter(r=>r.location===g).length))))}</div>${dashCard(program+' records','Inspect the records behind these charts',dashTable(rows,['agent_id','name','ctp','location','status','score','source']),`<button class="dw-link" data-dash-export="program">Export CSV</button>`)}`}
 function dashTests(xs){const key=dashboardSub[4]==='Pre Test'?'pre':'post';if(dashboardSub[4]==='Reguler Try Out')return dashProgram(xs,'Reguler Try Out');const rows=assessmentRows(xs);return `<div class="dw-footer"><div><strong>${rows.length} matched pre/post pairs</strong><p class="small">${surveyState().enabled?'Connected survey snapshots':'Demo roster scores'} · Same paired records as Pre-Post Evaluation.</p></div><button class="btn" data-goto="8">Connect / manage survey links</button></div>${assessmentPie(rows,key,key==='pre'?'Pre-Test Distribution':'Post-Test Distribution')}${dashCard('Assessment records','Scores / 100; gain is post minus pre in percentage points',dashTable(rows.map(a=>({agent_id:a.id,name:a.name,ctp:a.ctp,location:agentLocation(a),pre:a.pre,post:a.post,gain:Number((a.post-a.pre).toFixed(1))})),['agent_id','name','ctp','location','pre','post','gain']))}`}
-function dashRawRows(xs){if(dashboardSub[5]==='VoC')return vocRows(xs);if(dashboardSub[5]==='Programs')return DASH_PROGRAMS.flatMap(p=>dashboardProgramRows(xs,p));if(dashboardSub[5]==='Activities'){const ids=new Set(xs.map(a=>a.id));return state.activities.filter(a=>category==='All Categories'||a.category===category).filter(a=>ctp==='All CTPs'||a.ctp===ctp).filter(a=>(area==='All Areas'&&region==='All Regions'&&ctpScope==='All locations'&&!q)||[...activityAgentIds(a)].some(id=>ids.has(id))).map(a=>({activity_id:a.id,title:a.title,category:a.category,date:a.date,ctp:a.ctp,status:a.status,linked_agents:[...activityAgentIds(a)].filter(id=>ids.has(id)).length,source:'Saved activity'}))}const pairs=new Map(assessmentRows(xs).map(a=>[a.id,a]));return xs.map(a=>({agent_id:a.id,name:a.name,ctp:a.ctp,location:agentLocation(a),region:a.region,geographic_area:a.area,unit:a.unitName,csat:a.csat,fcr:meta(a).fcr,quiz:meta(a).quiz,attitude:a.attitude,skill:a.skill,knowledge:a.knowledge,weighted_ask:Number((a.attitude*.4+a.skill*.3+a.knowledge*.3).toFixed(1)),pre:pairs.get(a.id)?.pre??'',post:pairs.get(a.id)?.post??'',complete:a.complete,certified:a.certified,training_hours:a.trainingHours,source:surveyState().enabled?'Roster + connected paired scores':'Demo / locally imported roster'}))}
+function dashRawRows(xs){if(dashboardSub[5]==='VoC')return vocRows(xs);if(dashboardSub[5]==='Programs')return DASH_PROGRAMS.flatMap(p=>dashboardProgramRows(xs,p));if(dashboardSub[5]==='Activities'){const ids=new Set(xs.map(a=>a.id));return state.activities.filter(a=>category==='All Categories'||a.category===category).filter(a=>ctp==='All CTPs'||a.ctp===ctp).filter(a=>(area==='All Areas'&&region==='All Regions'&&ctpScope==='All locations'&&!q&&(page!==0||!dashboardUnit))||[...activityAgentIds(a)].some(id=>ids.has(id))).map(a=>({activity_id:a.id,title:a.title,category:a.category,date:a.date,ctp:a.ctp,status:a.status,linked_agents:[...activityAgentIds(a)].filter(id=>ids.has(id)).length,source:'Saved activity'}))}const pairs=new Map(assessmentRows(xs).map(a=>[a.id,a]));return xs.map(a=>({agent_id:a.id,name:a.name,ctp:a.ctp,location:agentLocation(a),region:a.region,geographic_area:a.area,unit:a.unitName,csat:a.csat,fcr:meta(a).fcr,quiz:meta(a).quiz,attitude:a.attitude,skill:a.skill,knowledge:a.knowledge,weighted_ask:Number((a.attitude*.4+a.skill*.3+a.knowledge*.3).toFixed(1)),pre:pairs.get(a.id)?.pre??'',post:pairs.get(a.id)?.post??'',complete:a.complete,certified:a.certified,training_hours:a.trainingHours,source:surveyState().enabled?'Roster + connected paired scores':'Demo / locally imported roster'}))}
 function dashFilteredRaw(xs){const query=dashboardRawQuery.toLowerCase();return dashRawRows(xs).filter(r=>Object.values(r).some(v=>String(v).toLowerCase().includes(query)))}
 function dashTable(rows,keys){return `<div class="tablewrap dw-table" tabindex="0" aria-label="Scrollable data table"><table><thead><tr>${keys.map(k=>`<th scope="col">${el(k.replaceAll('_',' '))}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${keys.map(k=>`<td>${el(r[k]===''||r[k]==null?'—':r[k])}</td>`).join('')}</tr>`).join('')||`<tr><td colspan="${keys.length}">No matching records. Reset filters or choose another category.</td></tr>`}</tbody></table></div>`}
 function dashRaw(xs){const rows=dashFilteredRaw(xs),pages=Math.max(1,Math.ceil(rows.length/20));dashboardRawPage=Math.min(dashboardRawPage,pages-1);const keys=Object.keys(rows[0]||{agent_id:'',name:'',source:''});return `<div class="dw-footer"><form id="dashRawForm" class="dw-raw-search"><label class="field">Search this table<input id="dashRawSearch" placeholder="Search any column" value="${el(dashboardRawQuery)}"></label><button class="btn" type="submit">Apply search</button></form><span>${rows.length} matching records · All columns included in export</span><button class="btn" data-dash-export="raw">Export filtered CSV</button></div>${dashTable(rows.slice(dashboardRawPage*20,(dashboardRawPage+1)*20),keys)}<div class="dw-pagination"><button class="btn" data-dash-page="-1" ${dashboardRawPage===0?'disabled':''}>Previous</button><span>Page ${dashboardRawPage+1} of ${pages}</span><button class="btn" data-dash-page="1" ${dashboardRawPage>=pages-1?'disabled':''}>Next</button></div><p class="small">Agents, program assignments, saved activities, and VoC are separate tables to avoid double-counting. Download Excel includes all four datasets using the shared filters and applied table search. Unlinked activities appear only without location or agent restrictions.</p>`}
-function dashboardTabs() {
-  const localMap = dashboardHasLocalMap();
-  const tabs = localMap ? [...DASH_TABS, 'GraPARI'] : DASH_TABS;
-  return `<nav class="dw-tabs${localMap ? ' dw-tabs-local' : ''}" aria-label="Dashboard categories">${tabs.map((label, index) => `<button data-dash-tab="${index}" ${dashboardTab===index ? 'aria-current="page"' : ''}><small>0${index+1}</small>${label}</button>`).join('')}</nav>`;
+function dashboardChannelLabel() {
+  return DASH_CHANNELS.find(channel=>channel.value===ctp)?.label ?? DASH_CHANNELS[0].label;
 }
-function dashboardWorkspace(){if (dashboardTab === DASH_GRAPARI_TAB && dashboardHasLocalMap()) {
-  return `<div class="dw-workspace">${dashboardTabs()}<section class="dw-panel" aria-label="GraPARI"><iframe class="dw-grapari-map" src="/local-grapari-map" title="Peta persebaran GraPARI 3D"></iframe></section></div>`;
-}const xs=filtered();const descriptions=['Start with readiness, then explore assessment outcomes and locations.','Understand Attitude, Skill and Knowledge, then identify capability gaps.','Explore each training stream and the participants behind its results.','Review regular training programs independently.','Compare matched assessments or explore the separate Try Out showcase.','Inspect and export the source records behind the dashboard.'];return `<div class="dw-workspace"><section class="dw-filter"><div class="dw-filter-title"><strong>Dashboard filters</strong><span>Applies to all six categories</span><button class="dw-link" id="resetFilters">Reset filters</button></div><div class="dw-filter-grid"><label class="field">Channel / CTP<select id="ctp"><option>All CTPs</option>${CTPS.map(c=>`<option value="${c}" ${ctp===c?'selected':''}>${c==='Contact Center'?'Call Center':c}</option>`).join('')}</select></label><label class="field">Area / Site<select id="ctpScope"><option value="All locations">All Areas / Sites</option>${locationOptions().map(l=>`<option ${ctpScope===l?'selected':''}>${el(l)}</option>`).join('')}</select></label><label class="field">Region<select id="region"><option>All Regions</option>${(area==='All Areas'?ALL_REGIONS:REGIONS[area]||[]).map(r=>`<option ${region===r?'selected':''}>${el(r)}</option>`).join('')}</select></label><label class="field">Search agent / region<input id="search" value="${el(q)}" placeholder="Name, ID or region"></label><button class="btn" id="searchNow">Search</button></div><div class="dw-scope">${xs.length} agents · ${el(ctp==='Contact Center'?'Call Center':ctp)} · ${el(ctpScope)} · ${el(region)}${area!=='All Areas'?' · Geographic area: '+el(area):''}${category!=='All Categories'?' · Activity: '+el(category):''}<span>Demo reporting · October 2026</span></div></section>${dashboardTabs()}<section aria-label="${DASH_TABS[dashboardTab]}" class="dw-panel"><div class="dw-section-title"><div><h2>${DASH_TABS[dashboardTab]}</h2><p>${descriptions[dashboardTab]}</p></div><div class="di-actions"><span class="dw-demo">SHOWCASE DATA</span>${dashboardTab===5?'<button class="btn" data-download-excel>Download Excel</button>':'<button class="btn" data-download-page>Download PDF</button>'}</div></div>${dashboardTab===2?dashSubtabs(['Hardskill','Soft skill']):dashboardTab===3?dashSubtabs(['ACS Booster','Bad Ticket']):dashboardTab===4?dashSubtabs(['Pre Test','Post Test','Reguler Try Out']):dashboardTab===5?dashSubtabs(['Agents','Programs','Activities','VoC']):''}${dashboardTab===0?participantOverview(xs)+executiveSummary(xs)+dashSummary(xs):dashboardTab===1?dashASK(xs):dashboardTab===2||dashboardTab===3?dashProgram(xs,dashboardSub[dashboardTab]):dashboardTab===4?dashTests(xs):dashRaw(xs)}${dashboardEnrichment(xs)}</section></div>`}
+
+function dashboardViewTitle() {
+  return dashboardTab === 0 ? dashboardChannelLabel() : DASH_VIEWS[dashboardTab];
+}
+
+function dashboardTabs() {
+  return `<nav class="dw-tabs" aria-label="Dashboard categories">${DASH_CHANNELS.map(({value,label})=>
+    `<button type="button" data-dash-channel="${value}"${dashboardTab===0 && ctp===value ? ' aria-current="page"' : ''}>${label}</button>`
+  ).join('')}</nav>`;
+}
+
+function selectDashboardChannel(channel) {
+  if (ctp !== channel) {
+    ctp = channel;
+    area = 'All Areas';
+    const locations = dashboardWorkbookUnits();
+    if (!locations.some(([,parts])=>parts[1]===ctpScope)) ctpScope = 'All locations';
+    const inArea = locations.filter(([,parts])=>ctpScope==='All locations' || parts[1]===ctpScope);
+    if (!inArea.some(([,parts])=>parts[2]===region)) region = 'All Regions';
+    if (!inArea.some(([key,parts])=>key===dashboardUnit && (region==='All Regions' || parts[2]===region))) dashboardUnit = '';
+  }
+  dashboardTab = 0;
+  dashboardRawQuery = '';
+  dashboardRawPage = 0;
+}
+
+function dashboardLocationControls(trial=false) {
+  const roster = state.agents.filter(agent=>
+    (ctp==='All CTPs' || agent.ctp===ctp) && (area==='All Areas' || agent.area===area));
+  const areaRows = roster.filter(agent=>ctpScope==='All locations' || agentLocation(agent)===ctpScope);
+  const regionRows = areaRows.filter(agent=>region==='All Regions' || agent.region===region);
+  const sort = (a,b)=>a.localeCompare(b,'id',{numeric:true});
+  const unique = values=>[...new Set(values.filter(Boolean))].sort(sort);
+  const options = values=>unique(values).map(value=>[value,value]);
+  const units = new Map();
+  for (const agent of regionRows) {
+    const name = dashboardUnitName(agent);
+    if (name) units.set(dashboardUnitKey(agent),{name,agent});
+  }
+  const nameCounts = new Map();
+  for (const {name} of units.values()) nameCounts.set(name,(nameCounts.get(name) || 0)+1);
+  const workbook = dashboardWorkbookUnits();
+  const workbookArea = workbook.filter(([,parts])=>ctpScope==='All locations' || parts[1]===ctpScope);
+  const workbookRegion = workbookArea.filter(([,parts])=>region==='All Regions' || parts[2]===region);
+  const unitOptions = (workbook.length ? workbookRegion.map(([key,parts])=>[key,parts[4]]) : [...units].map(([key,{name,agent}])=>[
+    key,
+    nameCounts.get(name)>1 ? [name,agent.ctp,agentLocation(agent),agent.region,agent.unitId].filter(Boolean).join(' · ') : name,
+  ])).sort((a,b)=>sort(a[1],b[1]));
+  const selectedUnit = dashboardLocalUnit();
+  if (selectedUnit && !unitOptions.some(([key])=>key===dashboardUnit)) unitOptions.unshift([dashboardUnit,selectedUnit[4]]);
+  const select = (label,id,choices,selected,defaultValue,defaultLabel)=>`<label class="field">${label}<select id="${id}">
+    <option value="${defaultValue}">${defaultLabel}</option>${choices.map(([value,text])=>`<option value="${el(value)}"${selected===value?' selected':''}>${el(text)}</option>`).join('')}
+  </select></label>`;
+  return `<div class="dw-filter-grid">
+    ${select('Area','dashboardArea',options(workbook.length?workbook.map(([,parts])=>parts[1]):roster.map(agentLocation)),ctpScope,'All locations','Semua area')}
+    ${select('Region','dashboardRegion',options(workbook.length?[...workbookArea.map(([,parts])=>parts[2]),region==='All Regions'?'':region]:areaRows.map(agent=>agent.region)),region,'All Regions','Semua region')}
+    ${select(trial?'Unit / Site':'Unit Name','dashboardUnit',unitOptions,dashboardUnit,'',trial?'Semua unit / site':'Semua unit')}
+  </div>`;
+}
+
+function dashboardWorkbookUnits() {
+  if (!dashboardTrial || !dashboardHasLocalMap()) return [];
+  const channel = ctp==='All CTPs' ? '' : dashboardChannelLabel();
+  const keys = new Set(Object.values(localAskReport || {}).flatMap(month=>Object.keys(month.csrLocations || {})));
+  return [...keys].map(key=>[key,JSON.parse(key)]).filter(([,parts])=>parts.length===5 && (!channel || parts[0]===channel));
+}
+
+function applyDashboardMapScope({mapArea='',mapRegion='',unit='',unitId=''}) {
+  const channel = dashboardChannelLabel();
+  const normalized = name=>name.trim().toLowerCase();
+  const matched = unit && dashboardWorkbookUnits().find(([,parts])=>
+    parts[0]===channel && (unitId ? parts[3]===unitId : normalized(parts[4])===normalized(unit)) &&
+    (!mapArea || parts[1]===mapArea) && (!mapRegion || parts[2]===mapRegion));
+  const selected = matched ? matched[1] : [channel,mapArea,mapRegion,unitId,unit];
+  area = 'All Areas';
+  ctpScope = selected[1] || 'All locations';
+  region = selected[2] || 'All Regions';
+  dashboardUnit = unit ? JSON.stringify(selected) : '';
+  dashboardRawPage = 0;
+}
+
+function dashboardLocationLabel() {
+  return [
+    area==='All Areas' ? '' : area,
+    ctpScope==='All locations' ? '' : ctpScope,
+    region==='All Regions' ? '' : region,
+    dashboardUnit ? dashboardLocalUnit()?.[4] || dashboardUnitName(state.agents.find(agent=>dashboardUnitKey(agent)===dashboardUnit) || {}) : '',
+  ].filter(Boolean).join(' · ') || 'Nasional';
+}
+
+const dashboardTrialMonthFormat = new Intl.DateTimeFormat('id-ID',{month:'long',year:'numeric',timeZone:'UTC'});
+const dashboardTrialMonthName = new Intl.DateTimeFormat('id-ID',{month:'long',timeZone:'UTC'});
+const dashboardTrialJakartaMonth = new Intl.DateTimeFormat('en-CA',{year:'numeric',month:'2-digit',timeZone:'Asia/Jakarta'});
+const dashboardTrialMonthDate = month=>new Date(month+'-01T00:00:00Z');
+const dashboardTrialFormatMonth = month=>dashboardTrialMonthFormat.format(dashboardTrialMonthDate(month));
+
+function dashboardTrialCurrentMonth(date=new Date()) {
+  const parts = dashboardTrialJakartaMonth.formatToParts(date);
+  return `${parts.find(part=>part.type==='year').value}-${parts.find(part=>part.type==='month').value}`;
+}
+
+function setDashboardTrialPeriod(window, month=reportTo.slice(0,7), startMonth=dashboardTrialRangeStart) {
+  dashboardTrialWindow = window;
+  if (window==='current') month = dashboardTrialCurrentMonth();
+  if (window==='range') dashboardTrialRangeStart = startMonth<=month ? startMonth : month;
+  const start = window==='range' ? dashboardTrialRangeStart : window==='ytd' ? month.slice(0,4)+'-01' : month;
+  const end = dashboardTrialMonthDate(month);
+  end.setUTCMonth(end.getUTCMonth()+1,0);
+  reportFrom = start+'-01';
+  reportTo = end.toISOString().slice(0,10);
+}
+
+function resetDashboardTrialPeriod() {
+  dashboardTrialRangeStart = DASHBOARD_TRIAL_DEFAULT_START;
+  setDashboardTrialPeriod('month',DASHBOARD_TRIAL_DEFAULT_MONTH);
+}
+
+function dashboardTrialPeriodLabel() {
+  const start = reportFrom.slice(0,7);
+  const end = reportTo.slice(0,7);
+  const label = dashboardTrialFormatMonth(end);
+  if (dashboardTrialWindow==='ytd') return 'YTD s.d. '+label;
+  if (dashboardTrialWindow!=='range' || start===end) return label;
+  const first = start.slice(0,4)===end.slice(0,4) ? dashboardTrialMonthName.format(dashboardTrialMonthDate(start)) : dashboardTrialFormatMonth(start);
+  return first+'–'+label;
+}
+
+function dashboardTrialPeriodControls() {
+  const selected = reportTo.slice(0,7);
+  const isRange = dashboardTrialWindow==='range';
+  const months = [...new Set([
+    DASHBOARD_TRIAL_DEFAULT_START,'2026-09',DASHBOARD_TRIAL_DEFAULT_MONTH,dashboardTrialCurrentMonth(),selected,dashboardTrialRangeStart,
+    ...Object.keys(localAskReport || {}),...localLearningMonths,
+    ...state.agents.map(agent=>isoDay(agent.assessmentDate || agent.date).slice(0,7)),
+    ...state.activities.map(activity=>isoDay(activity.date).slice(0,7)),
+  ].filter(Boolean))].sort().reverse();
+  const monthControl = (id,label,value)=>`<label class="field">${label}<select id="${id}">
+    ${months.map(month=>`<option value="${month}"${month===value?' selected':''}>${dashboardTrialFormatMonth(month)}</option>`).join('')}
+    </select></label>`;
+  const periods = [['current','Bulan berjalan'],['month','Pilih satu bulan'],['range','Rentang bulan'],['ytd','YTD']];
+  return `<div class="dw-filter-grid dw-trial-period${isRange?' is-range':''}">
+    <label class="field">Periode<select id="dashboardTrialWindow">${periods.map(([value,label])=>
+      `<option value="${value}"${value===dashboardTrialWindow?' selected':''}>${label}</option>`).join('')}</select></label>
+    ${isRange ? monthControl('dashboardTrialStartMonth','Dari bulan',dashboardTrialRangeStart) : ''}
+    ${dashboardTrialWindow==='current' ? '' : monthControl('dashboardTrialMonth',isRange?'Sampai bulan':'Bulan laporan',selected)}
+  </div>`;
+}
+
+let localLearningAvailable = true;
+let localLearningMonths = [];
+const localLearningReports = new Map();
+
+function localLearningQuery() {
+  const localUnit = dashboardLocalUnit();
+  const agent = dashboardUnit && !localUnit && state.agents.find(row=>dashboardUnitKey(row)===dashboardUnit);
+  const params = new URLSearchParams({from:reportFrom,to:reportTo});
+  if (ctp!=='All CTPs') params.set('channel',dashboardChannelLabel());
+  if (ctpScope!=='All locations') params.set('area',ctpScope);
+  if (region!=='All Regions') params.set('region',region);
+  if (area!=='All Areas') for (const member of REGIONS[area] || []) params.append('geoRegion',member);
+  const unit = localUnit?.[4] || (agent && dashboardUnitName(agent));
+  const unitId = localUnit?.[3] || agent?.unitId;
+  if (unit) params.set('unit',unit);
+  if (unitId) params.set('unitId',unitId);
+  return params.toString();
+}
+
+function dashboardLearningReport() {
+  if (!dashboardHasLocalMap() || !localLearningAvailable) return null;
+  return localLearningReports.get(localLearningQuery()) || {status:'loading'};
+}
+
+async function loadLocalLearningReport() {
+  if (!dashboardHasLocalMap() || !localLearningAvailable) return;
+  const query = localLearningQuery();
+  if (localLearningReports.has(query)) return;
+  localLearningReports.set(query,{status:'loading'});
+  try {
+    const response = await fetch('/api/local-learning?' + query);
+    if (response.status===404) localLearningAvailable = false;
+    else if (!response.ok) localLearningReports.set(query,{status:'error'});
+    else {
+      const data = await response.json();
+      localLearningMonths = data.months;
+      localLearningReports.set(query,data);
+    }
+  } catch {
+    localLearningReports.set(query,{status:'error'});
+  }
+  if (!document.querySelector('.ctp-executive') || localLearningQuery()!==query) return;
+  const focus = document.activeElement?.id;
+  const openDialog = document.querySelector('.canvas-dialog[open]')?.id;
+  renderDashboardFilters(focus);
+  if (openDialog) {
+    const dialog = document.getElementById(openDialog);
+    if (dialog && !dialog.open) dialog.showModal();
+  }
+}
+
+function renderDashboardFilters(focusId) {
+  const scrollTop = document.scrollingElement?.scrollTop;
+  render();
+  if (scrollTop!=null && document.scrollingElement.scrollTop!==scrollTop) document.scrollingElement.scrollTop = scrollTop;
+  if (focusId) document.getElementById(focusId)?.focus({preventScroll:true});
+}
+
+function dashboardWorkspace() {
+  const xs = filtered();
+  const title = dashboardViewTitle();
+  const showExecutiveCards = dashboardTab===0 && ctp==='All CTPs';
+  const canTrial = dashboardTab===0 && dashboardHasLocalMap();
+  const trial = canTrial && dashboardTrial;
+  const descriptions = [
+    ctp==='All CTPs' ? 'Ringkasan kinerja training untuk semua CTP.' : `Ringkasan kinerja training untuk ${dashboardChannelLabel()}.`,
+    'Understand Attitude, Skill and Knowledge, then identify capability gaps.',
+    'Explore each training stream and the participants behind its results.',
+    'Review regular training programs independently.',
+    'Compare matched assessments or explore the separate Try Out showcase.',
+    'Inspect and export the source records behind the dashboard.',
+  ];
+  const canMap = dashboardTab===0 && dashboardHasLocalMap();
+  const mapParams = canMap ? new URLSearchParams({
+    month:reportTo.slice(0,7),
+    area:ctpScope==='All locations'?'':ctpScope,
+    region:region==='All Regions'?'':region,
+    unit:dashboardLocalUnit()?.[4] || '',
+    unitId:dashboardLocalUnit()?.[3] || '',
+  }) : null;
+  const map = canMap
+    ? ctp==='GraPARI'
+      ? `<iframe class="dw-grapari-map" src="/local-grapari-map?${el(mapParams.toString())}" title="Peta persebaran GraPARI 3D"></iframe>`
+      : ctp==='Contact Center'
+        ? `<iframe class="dw-grapari-map" src="/local-grapari-map?view=call-center&amp;${el(mapParams.toString())}" title="Peta persebaran Call Center 3D"></iframe>`
+        : ''
+    : '';
+  const subTabs = {
+    2:['Hardskill','Soft skill'],
+    3:['ACS Booster','Bad Ticket'],
+    4:['Pre Test','Post Test','Reguler Try Out'],
+    5:['Agents','Programs','Activities','VoC'],
+  };
+  const actions = `<div class="di-actions">${canTrial?`<button type="button" class="btn" id="dashboardTrialToggle">${trial?'Tampilan sebelumnya':'Coba dashboard satu halaman'}</button>`:''}${showExecutiveCards||trial?'':'<span class="dw-demo">SHOWCASE DATA</span>'}${dashboardTab===5?'<button class="btn" data-download-excel>Download Excel</button>':'<button class="btn" data-download-page>Download PDF</button>'}</div>`;
+  const location = dashboardLocationLabel();
+  const national = ctp==='All CTPs' && location==='Nasional';
+  const periodLabel = trial ? dashboardTrialPeriodLabel() : '';
+  return `<div class="dw-workspace${trial?' dw-wall':''}">
+    ${trial?`<header class="wall-header"><div><div class="wall-heading"><h1>Kinerja CSR &amp; Training${national?' Nasional':''}</h1>
+     <time class="wall-period" datetime="${reportTo.slice(0,7)}">${periodLabel}</time></div>
+     <p>${ctp==='All CTPs'?'Semua CTP':dashboardChannelLabel()}${national?'':` · ${el(location)}`}</p></div>${actions}</header>`:''}
+    ${dashboardTabs()}
+    <section class="dw-filter${trial?' dw-wall-filters':''}" aria-label="${trial?'Filter dashboard':'Filter lokasi'}">
+      <div class="dw-filter-title"><strong>Cakupan lokasi</strong><button type="button" class="dw-link" id="dashboardResetFilters">${trial?'Reset filter':'Nasional'}</button></div>
+      ${trial ? dashboardTrialPeriodControls() : ''}
+      ${dashboardLocationControls(trial)}
+      <div class="dw-scope">${showExecutiveCards||trial?'':xs.length+' agents · '}${el(dashboardLocationLabel())}${category==='All Categories'?'':' · Activity: '+el(category)}${q?' · Search: '+el(q):''}<span>${trial ? 'Periode laporan · '+el(reportFrom)+' — '+el(reportTo) : 'Demo reporting · October 2026'}</span></div>
+    </section>
+    <section aria-label="${title}" class="dw-panel">
+      ${trial?'':`<div class="dw-section-title"><div><h2 tabindex="-1">${title}</h2><p>${descriptions[dashboardTab]}</p></div>${actions}</div>`}
+      ${subTabs[dashboardTab] ? dashSubtabs(subTabs[dashboardTab]) : ''}
+      ${trial ? (map?`<div class="wall-map">${map}</div>`:'')+ctpExecutiveDashboard(xs,true)
+        : showExecutiveCards ? ctpExecutiveDashboard(xs)+`<details class="dw-card ctp-supporting">
+        <summary>Data pendukung dan analisis detail</summary>
+        ${participantOverview(xs)+executiveSummary(xs)+dashSummary(xs)+dashboardEnrichment(xs)}
+      </details>`
+        : dashboardTab===0 ? map+participantOverview(xs)+executiveSummary(xs)+dashSummary(xs)
+        : dashboardTab===1 ? dashASK(xs)
+        : dashboardTab===2||dashboardTab===3 ? dashProgram(xs,dashboardSub[dashboardTab])
+        : dashboardTab===4 ? dashTests(xs) : dashRaw(xs)}
+      ${showExecutiveCards||trial?'':dashboardEnrichment(xs)}
+    </section>
+  </div>`;
+}
 function bindDashboardMap() {
   const frame = document.querySelector('.dw-grapari-map');
   frame?.addEventListener('load', () => {
@@ -49,7 +330,240 @@ function bindDashboardMap() {
     observer.observe(content);
   }, {once:true});
 }
-function bindDashboard(){bindDashboardMap();document.getElementById('resetFilters')?.addEventListener('click',()=>{dashboardRawQuery='';dashboardRawPage=0;render()});document.querySelectorAll('[data-dash-tab]').forEach(b=>b.addEventListener('click',()=>{if(Number(b.dataset.dashTab)===5){dashboardSub[5]=(dashboardTab===2||dashboardTab===3||(dashboardTab===4&&dashboardSub[4]==='Reguler Try Out'))?'Programs':'Agents';dashboardRawQuery=(dashboardSub[5]==='Programs'?dashboardSub[dashboardTab]:'')}dashboardTab=Number(b.dataset.dashTab);dashboardRawPage=0;render();document.querySelector('.dw-tabs [aria-current]')?.focus({preventScroll:true})}));document.querySelectorAll('[data-dash-sub]').forEach(b=>b.addEventListener('click',()=>{dashboardSub[dashboardTab]=b.dataset.dashSub;dashboardRawQuery='';dashboardRawPage=0;render();document.querySelector('.dw-subtabs .active')?.focus({preventScroll:true})}));document.querySelectorAll('[data-dash-group]').forEach(b=>b.addEventListener('click',()=>{dashboardGroup=b.dataset.dashGroup;render()}));document.getElementById('dashRawForm')?.addEventListener('submit',e=>{e.preventDefault();dashboardRawQuery=document.getElementById('dashRawSearch').value;dashboardRawPage=0;render()});document.querySelectorAll('[data-dash-page]').forEach(b=>b.addEventListener('click',()=>{dashboardRawPage+=Number(b.dataset.dashPage);render()}));document.querySelectorAll('[data-dash-export]').forEach(b=>b.addEventListener('click',()=>{const rows=b.dataset.dashExport==='raw'?dashFilteredRaw(filtered()):dashboardProgramRows(filtered(),dashboardSub[dashboardTab]);if(!rows.length){notify('No records to export');return}csvDownload('omniknow-'+(b.dataset.dashExport==='raw'?dashboardSub[5]:dashboardSub[dashboardTab]),rows)}))}
+
+globalThis.window?.addEventListener('message',event=>{
+  const frame = document.querySelector('.dw-grapari-map');
+  const data = event.data;
+  if (!frame || event.origin!==location.origin || event.source!==frame.contentWindow ||
+      data?.type!=='omniknow-map-scope' || data.channel!==dashboardChannelLabel() ||
+      !['mapArea','mapRegion','unit','unitId'].every(key=>typeof data[key]==='string')) return;
+  const before = JSON.stringify([ctpScope,region,dashboardUnit]);
+  applyDashboardMapScope(data);
+  if (before!==JSON.stringify([ctpScope,region,dashboardUnit])) render();
+  if (data.activate===true && data.unit) {
+    const heading = document.getElementById('dashboard-map-distribution-title');
+    heading?.focus({preventScroll:true});
+    heading?.scrollIntoView({block:'start'});
+  }
+});
+
+function bindDashboardAskDrilldown(report) {
+  if (!report) return;
+  const scope = new URLSearchParams(localLearningQuery());
+  if (report.dataset.askDetailMonth) {
+    const month = report.dataset.askDetailMonth;
+    const lastDay = dashboardTrialMonthDate(month);
+    lastDay.setUTCMonth(lastDay.getUTCMonth()+1,0);
+    scope.set('from',month+'-01');
+    scope.set('to',lastDay.toISOString().slice(0,10));
+  }
+  const localUnit = dashboardLocalUnit();
+  if (localUnit) {
+    for (const [key,value] of [['channel',localUnit[0]],['area',localUnit[1]],['region',localUnit[2]]]) {
+      if (value && !scope.has(key)) scope.set(key,value);
+    }
+  }
+  const scopeKey = scope.toString();
+  const score = new Intl.NumberFormat('id-ID',{maximumFractionDigits:1});
+  const count = new Intl.NumberFormat('id-ID');
+  const unitLabel = row=>[row.unit,row.area || row.region || row.channel].filter(Boolean).join(' · ') || '—';
+  const scoreLabel = row=>Number.isFinite(row.score) ? score.format(row.score) : '—';
+  async function request(view,filters={}) {
+    const query = new URLSearchParams(scope);
+    query.set('view',view);
+    for (const [key,value] of Object.entries(filters)) if (value!=='') query.set(key,value);
+    const response = await fetch('/api/local-ask-drilldown?'+query);
+    if (response.status===404) return null;
+    if (!response.ok) throw new Error('ASK detail unavailable');
+    return response.json();
+  }
+
+  const rank = report.querySelector('[data-ask-ranking]');
+  async function loadRanking() {
+    if (!rank || !report.open || rank.dataset.loaded) return;
+    rank.dataset.loaded = 'true';
+    rank.setAttribute('aria-busy','true');
+    const list = (title,rows)=>`<article><h4>${title}</h4><ol class="canvas-ask-ranking-list">${rows.map(row=>`<li>
+      <div><strong>${el(row.name)}</strong><small>${el(unitLabel(row))}</small></div><b>${scoreLabel(row)}</b></li>`).join('')}</ol></article>`;
+    try {
+      const result = await request('ranking');
+      if (!rank.isConnected) return;
+      rank.innerHTML = !result ? '<p>Daftar nama ASK belum diaktifkan di server lokal.</p>'
+        : result.total ? `<div class="canvas-ask-rank-grid">${list('Top 5',result.top)}${list('Bottom 5',result.bottom)}</div>`
+        : '<p>Belum ada skor ASK untuk cakupan ini.</p>';
+    } catch {
+      if (rank.isConnected) rank.textContent = 'Peringkat ASK belum bisa dimuat.';
+    } finally {
+      rank.removeAttribute('aria-busy');
+    }
+  }
+  report.addEventListener('toggle',loadRanking);
+  loadRanking();
+
+  const dialog = document.getElementById('canvas-ask-drill');
+  if (!dialog) return;
+  const title = dialog.querySelector('h3');
+  const form = dialog.querySelector('.canvas-ask-drill-search');
+  const search = form.elements.namedItem('q');
+  const rows = dialog.querySelector('.canvas-ask-drill-rows');
+  const previous = dialog.querySelector('[data-ask-page="previous"]');
+  const next = dialog.querySelector('[data-ask-page="next"]');
+  const status = dialog.querySelector('.canvas-ask-drill-pager [role="status"]');
+  const pageSize = 20;
+  let requestId = 0;
+
+  async function loadNames() {
+    const id = ++requestId;
+    const {code,offset,query} = dashboardAskDrillState;
+    previous.disabled = next.disabled = true;
+    status.textContent = '';
+    rows.setAttribute('aria-busy','true');
+    rows.innerHTML = '<p>Memuat daftar CSR…</p>';
+    try {
+      const result = await request('quadrant',{quadrant:code,offset,q:query});
+      if (id!==requestId || !dialog.isConnected) return;
+      rows.innerHTML = !result ? '<p>Daftar nama ASK belum diaktifkan di server lokal.</p>'
+        : !result.rows.length ? '<p>Tidak ada nama CSR yang cocok.</p>'
+        : `<table><thead><tr><th scope="col">Nama CSR</th><th scope="col">Unit</th><th scope="col">ASK /100</th></tr></thead>
+          <tbody>${result.rows.map(row=>`<tr><th scope="row">${el(row.name)}</th><td>${el(unitLabel(row))}</td><td>${scoreLabel(row)}</td></tr>`).join('')}</tbody></table>`;
+      if (result?.rows.length) {
+        const end = result.offset + result.rows.length;
+        status.textContent = `${count.format(result.offset+1)}–${count.format(end)} dari ${count.format(result.total)} CSR`;
+        previous.disabled = result.offset===0;
+        next.disabled = end>=result.total;
+      }
+    } catch {
+      if (id===requestId && dialog.isConnected) rows.textContent = 'Daftar CSR belum bisa dimuat.';
+    } finally {
+      if (id===requestId) rows.removeAttribute('aria-busy');
+    }
+  }
+
+  function openNames() {
+    const {label,code,query} = dashboardAskDrillState;
+    title.textContent = `${label} · ${code}`;
+    search.value = query;
+    if (!dialog.open) dialog.showModal();
+    loadNames();
+  }
+  report.querySelectorAll('[data-ask-quadrant-code]').forEach(button=>button.addEventListener('click',()=>{
+    const code = button.dataset.askQuadrantCode;
+    const label = button.querySelector('.canvas-quadrant-summary').textContent;
+    dashboardAskDrillState = {code,label,scope:scopeKey,offset:0,query:''};
+    openNames();
+  }));
+  form.addEventListener('submit',event=>{
+    event.preventDefault();
+    Object.assign(dashboardAskDrillState,{offset:0,query:search.value.trim()});
+    loadNames();
+  });
+  previous.addEventListener('click',()=>{dashboardAskDrillState.offset -= pageSize;loadNames()});
+  next.addEventListener('click',()=>{dashboardAskDrillState.offset += pageSize;loadNames()});
+  dialog.addEventListener('close',()=>{
+    requestId++;
+    if (dialog.isConnected) dashboardAskDrillState = null;
+  });
+  if (dashboardAskDrillState?.scope===scopeKey) openNames();
+}
+
+function bindDashboard(){
+  bindDashboardMap();
+  document.querySelectorAll('.canvas-kpi[data-kpi]').forEach(card=>card.addEventListener('toggle',()=>{
+    if (!card.isConnected) return;
+    if (card.open) dashboardOpenKpis.add(card.dataset.kpi);
+    else dashboardOpenKpis.delete(card.dataset.kpi);
+  }));
+  document.querySelectorAll('details[data-learning-disclosure]').forEach(disclosure=>disclosure.addEventListener('toggle',()=>{
+    if (!disclosure.isConnected) return;
+    const key = disclosure.dataset.learningDisclosure;
+    if (disclosure.open) dashboardLearningOpen.add(key);
+    else dashboardLearningOpen.delete(key);
+  }));
+  bindDashboardHardSkill();
+  const askReport = document.querySelector('.canvas-ask-report');
+  askReport?.querySelector('summary')?.addEventListener('click',()=>{
+    dashboardAskReportOpen = !askReport.open;
+  });
+  askReport?.addEventListener('toggle',()=>{
+    if (askReport.isConnected) dashboardAskReportOpen = askReport.open;
+  });
+  bindDashboardAskDrilldown(askReport);
+  if (document.querySelector('.ctp-executive')) {
+    loadLocalAskReport();
+    loadLocalLearningReport();
+  }
+  document.getElementById('dashboardTrialToggle')?.addEventListener('click',()=>{
+    dashboardTrial = !dashboardTrial;
+    const window = dashboardTrialWindow;
+    setDashboardTrialPeriod(dashboardTrial ? window : 'month',reportTo.slice(0,7));
+    dashboardTrialWindow = window;
+    render();
+    document.getElementById('dashboardTrialToggle')?.focus({preventScroll:true});
+  });
+  for (const id of ['dashboardTrialWindow','dashboardTrialMonth','dashboardTrialStartMonth']) {
+    document.getElementById(id)?.addEventListener('change',()=>{
+      const mode = document.getElementById('dashboardTrialWindow').value;
+      const end = document.getElementById('dashboardTrialMonth')?.value || reportTo.slice(0,7);
+      const start = document.getElementById('dashboardTrialStartMonth')?.value || dashboardTrialRangeStart;
+      setDashboardTrialPeriod(mode,id==='dashboardTrialStartMonth' && start>end ? start : end,start);
+      renderDashboardFilters(id);
+    });
+  }
+  document.querySelectorAll('[data-canvas-dialog]').forEach(button=>button.addEventListener('click',()=>{
+    document.getElementById(button.dataset.canvasDialog)?.showModal();
+  }));
+  document.querySelector('[data-dashboard-ask-detail]')?.addEventListener('click',()=>{
+    localAskWindow = dashboardTrialWindow==='ytd' ? 'ytd' : 'month';
+    localAskMonth = reportTo.slice(0,7);
+    const unit = dashboardLocalUnit();
+    localAskChannel = unit?.[0] || (ctp==='All CTPs' ? '' : dashboardChannelLabel());
+    localAskModel = '';
+    Object.assign(localAskLocation,{area:unit?.[1] || '',region:unit?.[2] || '',unit:unit ? dashboardUnit : ''});
+    page = 3;
+    render();
+  });
+  document.getElementById('dashboardResetFilters')?.addEventListener('click',()=>{
+    area='All Areas';
+    region='All Regions';
+    ctpScope='All locations';
+    category='All Categories';
+    trendWindow='MoM';
+    q='';
+    dashboardUnit='';
+    dashboardRawQuery='';
+    dashboardRawPage=0;
+    if (document.querySelector('.dw-wall-filters')) {
+      resetDashboardTrialPeriod();
+      resetHardSkillDrilldown();
+    }
+    renderDashboardFilters('dashboardResetFilters');
+  });
+  const locationFilters = {
+    dashboardArea(value){ctpScope=value;area='All Areas';region='All Regions';dashboardUnit=''},
+    dashboardRegion(value){region=value;dashboardUnit=''},
+    dashboardUnit(value){
+      dashboardUnit=value;
+      const selection=dashboardLocalUnit();
+      if (selection) {
+        ctpScope=selection[1] || 'All locations';
+        region=selection[2] || 'All Regions';
+      }
+    },
+  };
+  for (const [id,apply] of Object.entries(locationFilters)) {
+    document.getElementById(id)?.addEventListener('change',event=>{
+      apply(event.target.value);
+      dashboardRawPage=0;
+      renderDashboardFilters(id);
+    });
+  }
+  document.querySelectorAll('[data-dash-channel]').forEach(button=>button.addEventListener('click',()=>{
+    selectDashboardChannel(button.dataset.dashChannel);
+    if (dashboardTrial && dashboardHasLocalMap()) setDashboardTrialPeriod(dashboardTrialWindow,reportTo.slice(0,7));
+    render();
+    document.querySelector('.dw-tabs [aria-current]')?.focus({preventScroll:true});
+  }));
+  document.querySelectorAll('[data-dash-tab]').forEach(b=>b.addEventListener('click',()=>{if(Number(b.dataset.dashTab)===5){dashboardSub[5]=(dashboardTab===2||dashboardTab===3||(dashboardTab===4&&dashboardSub[4]==='Reguler Try Out'))?'Programs':'Agents';dashboardRawQuery=(dashboardSub[5]==='Programs'?dashboardSub[dashboardTab]:'')}dashboardTab=Number(b.dataset.dashTab);if(b.dataset.dashOpenSub)dashboardSub[dashboardTab]=b.dataset.dashOpenSub;dashboardRawPage=0;render();document.querySelector('.dw-panel h2')?.focus({preventScroll:true})}));document.querySelectorAll('[data-dash-sub]').forEach(b=>b.addEventListener('click',()=>{dashboardSub[dashboardTab]=b.dataset.dashSub;dashboardRawQuery='';dashboardRawPage=0;render();document.querySelector('.dw-subtabs .active')?.focus({preventScroll:true})}));document.querySelectorAll('[data-dash-group]').forEach(b=>b.addEventListener('click',()=>{dashboardGroup=b.dataset.dashGroup;render()}));document.getElementById('dashRawForm')?.addEventListener('submit',e=>{e.preventDefault();dashboardRawQuery=document.getElementById('dashRawSearch').value;dashboardRawPage=0;render()});document.querySelectorAll('[data-dash-page]').forEach(b=>b.addEventListener('click',()=>{dashboardRawPage+=Number(b.dataset.dashPage);render()}));document.querySelectorAll('[data-dash-export]').forEach(b=>b.addEventListener('click',()=>{const rows=b.dataset.dashExport==='raw'?dashFilteredRaw(filtered()):dashboardProgramRows(filtered(),dashboardSub[dashboardTab]);if(!rows.length){notify('No records to export');return}csvDownload('omniknow-'+(b.dataset.dashExport==='raw'?dashboardSub[5]:dashboardSub[dashboardTab]),rows)}))}
 
 // ASK uses final dimension scores. No personal workbook data is embedded in source.
 let askSegmentFilter='All',askQuadrantFilter='All',askDetailQuery='',askDetailPage=0,askPerformanceWindow='MoM';
@@ -86,11 +600,72 @@ function loadLocalAskReport() {
  fetch('/api/local-ask-summary').then(async response => {
   if (response.status === 404) return;
   localAskReport = response.ok ? await response.json() : {};
-  if (document.querySelector('.ak-dashboard')) render();
+  if (document.querySelector('.ak-dashboard,.ctp-executive')) render();
  }).catch(() => {
   localAskReport = {};
-  if (document.querySelector('.ak-dashboard')) render();
+  if (document.querySelector('.ak-dashboard,.ctp-executive')) render();
  });
+}
+
+function localAskHighTrend(rows, scope, dimensions) {
+ return askMonthlyTrend(rows.map(row=>({
+  ...row, values:row.high.map(count=>row.total ? 100*count/row.total : null),
+ })),scope,dimensions,{
+  heading:'Tren High bulanan',
+  description:'Persentase CSR dengan skor ≥80 per dimensi.',
+  suffix:'%',
+ });
+}
+
+function askMonthlyTrend(rows, scope, labels, {heading,description,suffix='',score=false}) {
+ const hasData = row=>row?.values.some(Number.isFinite);
+ if (rows.filter(hasData).length < 2) {
+  return `<section class="ak-panel ask-report-trend"><h3>${heading} · ${scope}</h3>
+   <p>Grafik tren tersedia setelah ada penilaian untuk minimal dua bulan dalam rentang ini.</p>
+  </section>`;
+ }
+ const scoreClasses = {'GraPARI':'grapari','Call Center':'call-center','E-Care':'ecare'};
+ const series = score ? labels.map(label=>scoreClasses[label]) : ['attitude','skill','knowledge'];
+ const chartClass = name=>score?'ask-score-'+name:'ask-high-'+name;
+ const monthNames = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+ const selected = rows.findLastIndex(hasData);
+ const format = new Intl.NumberFormat('id-ID', {maximumFractionDigits: 1});
+ const left = 48, right = 696, top = 18, bottom = 208;
+ const step = (right - left) / rows.length;
+ const x = index => left + step * (index + 0.5);
+ const minimum = score ? Math.min(60,10*Math.floor(Math.min(...rows.flatMap(row=>row.values.filter(Number.isFinite)))/10)) : 0;
+ const ticks = score ? Array.from({length:(100-minimum)/10+1},(_,i)=>minimum+10*i) : [0,25,50,75,100];
+ const y = value => bottom - (value-minimum) / (100-minimum) * (bottom - top);
+ const labelValue = value=>Number.isFinite(value)?format.format(value)+suffix:'—';
+ const points = rows.map((row,index)=>{
+  if (!hasData(row)) return '';
+  const summary = `${row.label}, ${format.format(row.total)} CSR. ${labels.map((name,i)=>`${name} ${labelValue(row.values[i])}`).join(', ')}`;
+  return `<g role="button" tabindex="0" aria-pressed="${index===selected}" aria-label="${el(summary)}" data-ask-trend-point="${index}">
+   <title>${el(summary)}</title>
+   <line class="ask-trend-guide" x1="${x(index)}" x2="${x(index)}" y1="${top}" y2="${bottom}"/>
+   ${series.map((name,i)=>Number.isFinite(row.values[i])?`<circle class="${chartClass(name)}" cx="${x(index)}" cy="${y(row.values[i])}" r="4"/>`:'').join('')}
+   <rect class="ask-trend-hit" x="${left + step * index}" y="${top}" width="${step}" height="${bottom - top}"/>
+  </g>`;
+ }).join('');
+ const lines = series.map((name,i)=>{
+  const path = rows.map((row,index)=>Number.isFinite(row.values[i])
+   ? `${Number.isFinite(rows[index-1]?.values[i]) ? 'L' : 'M'}${x(index)} ${y(row.values[i])}` : '').join(' ');
+  return `<path class="${chartClass(name)}" d="${path.trim()}"/>`;
+ }).join('');
+ const details = rows.map((row,index)=>hasData(row) ? `<div class="ask-trend-month-detail" data-ask-trend-detail="${index}"${index===selected?'':' hidden'}>
+  <span><strong>${row.label}</strong> · ${format.format(row.total)} CSR dinilai</span>
+  ${series.map((name,i)=>`<span class="${chartClass(name)}"><i aria-hidden="true"></i>${labels[i]} <strong>${labelValue(row.values[i])}</strong></span>`).join('')}
+ </div>` : '').join('');
+ return `<section class="ak-panel ask-report-trend"><h3>${heading} · ${scope}</h3>
+  <p>${description} ${rows.some(row=>!hasData(row)) ? 'Bulan tanpa penilaian ditampilkan sebagai celah. ' : ''}Pilih bulan untuk melihat rinciannya.</p>
+  <svg class="ask-high-chart" viewBox="0 0 712 244" role="group" aria-label="${heading}, ${rows[0].label} sampai ${rows.at(-1).label}">
+   ${ticks.map(value=>`<line class="ask-trend-grid" x1="${left}" x2="${right}" y1="${y(value)}" y2="${y(value)}"/>
+    <text x="${left - 8}" y="${y(value) + 5}" text-anchor="end">${value}${suffix}</text>`).join('')}
+   ${rows.map((row,index)=>`<text class="ask-trend-tick${hasData(row)?'':' is-missing'}" x="${x(index)}" y="232" text-anchor="middle">${monthNames[index]}</text>`).join('')}
+   ${lines}${points}
+  </svg>
+  <div class="ask-trend-details" aria-live="polite">${details}</div>
+ </section>`;
 }
 
 function localAskSlideTwo() {
@@ -212,20 +787,14 @@ function localAskSlideTwo() {
    ${before ? `<div class="ask-report-detail"><small>Sebelumnya · High ${resultLabel(before.high[index],before.total)} · Low ${resultLabel(before.total-before.high[index],before.total)} dari ${num(before.total)} ${unit}</small>${askDelta(rate(count,now.total),last)}</div>` : ''}${parameterDetails}</div>`;
   }).join('')}</article>`;
  }).join('');
- const trendMonths = months.filter(key=>key<=expected.at(-1));
- const trend = trendMonths.map(key=>{
-  const groups = rollup([key]).groups;
-  const [year,month] = key.split('-').map(Number);
-  const priorKey = new Date(Date.UTC(year,month-2,1)).toISOString().slice(0,7);
-  const priorGroups = localAskReport[priorKey] ? rollup([priorKey]).groups : null;
-  const assessed = segments.reduce((sum,name)=>sum+groups[name].total,0);
-  const priorAssessed = priorGroups ? segments.reduce((sum,name)=>sum+priorGroups[name].total,0) : 0;
-  return `<tr><th scope="row">${monthLabel(key)}</th><td>${num(assessed)}</td>${dimensions.map((_,i)=>{
-   const high = segments.reduce((sum,name)=>sum+groups[name].high[i],0);
-   const priorHigh = priorGroups ? segments.reduce((sum,name)=>sum+priorGroups[name].high[i],0) : 0;
-   return `<td>${pct(high,assessed)} ${askDelta(rate(high,assessed),rate(priorHigh,priorAssessed))}</td>`;
-  }).join('')}</tr>`;
- }).join('');
+ const trend = localAskWindow==='ytd' ? expected.map(key=>{
+  const groups = Object.values(rollup(localAskReport[key] ? [key] : []).groups);
+  return {
+   label: monthLabel(key),
+   total: groups.reduce((sum, group)=>sum + group.total, 0),
+   high: dimensions.map((_,i)=>groups.reduce((sum, group)=>sum + group.high[i], 0)),
+  };
+ }) : null;
  const quadrants = ['HAHAKO (HA)','HAHAKO (LA)','HALOKO (HA)','LOHAKO (HA)','HALOKO (LA)','LOHAKO (LA)','LOLOKO (HA)','LOLOKO (LA)'];
  if (segments.some(name => availableQuadrants[name]['BELUM TERSEDIA'])) quadrants.push('BELUM TERSEDIA');
  const quadrantCounts = quadrants.map(label=>({
@@ -258,19 +827,18 @@ function localAskSlideTwo() {
  const locationFilters = locationSelect('localAskArea','Area',areas.map(value=>[value,value]),area)
   + locationSelect('localAskRegion','Region',regions.map(value=>[value,value]),region)
   + locationSelect('localAskUnit','Unit Name',unitOptions,unitParts?localAskLocation.unit:'');
- return `<section class="ak-dashboard ask-report" aria-label="Report ASK Slide 2">
- <header class="ak-hero"><div><h2>Profil ASK per segmen</h2><p>Ringkasan slide 2 dari workbook ASK</p></div></header>
+ return `<section class="ak-dashboard ask-report" aria-label="Laporan ASK">
+ <header class="ak-hero"><div><h2>Profil ASK per segmen</h2><p>Kelulusan, perbandingan periode, dan distribusi kuadran.</p></div></header>
  <div class="ak-panel ask-report-filters"><div class="ak-toolbar ask-filter-row"><label>Periode kinerja<select id="localAskWindow">${Object.entries({month:'Bulanan',quarter:'Triwulan',semester:'Semester',ytd:'YTD'}).map(([value,label])=>`<option value="${value}" ${value===localAskWindow?'selected':''}>${label}</option>`).join('')}</select></label><label>${periodLabels[localAskWindow]}<select id="localAskMonth">${periods[localAskWindow].map(([value,label])=>`<option value="${el(value)}" ${value===selectedPeriod?'selected':''}>${el(label)}</option>`).join('')}</select></label>
  <label>CTP / Channel<select id="localAskChannel"><option value="">Nasional · Semua CTP</option>${Object.keys(LOCAL_ASK_CHANNELS).map(name=>`<option ${name===localAskChannel?'selected':''}>${name}</option>`).join('')}</select></label>
  <button type="button" class="btn" id="localAskReset">Reset filter ASK</button>
  </div>
  ${localAskChannel?`<div class="ask-filter-location"><h3>Lokasi</h3><div class="ak-toolbar ask-filter-row">${localAskChannel==='GraPARI'?`<label>Business Model<select id="localAskModel"><option value="">Semua model</option>${LOCAL_ASK_CHANNELS.GraPARI.map((name,i)=>`<option value="${name}" ${name===localAskModel?'selected':''}>${['MOMO','TOMO'][i]} · ${segmentNames[name]}</option>`).join('')}</select></label>`:''}${locationFilters}</div></div>`: ''}</div>
- <div class="ak-panel"><strong>${rangeLabel(expected)}</strong><p>Data tersedia (${available.length}/${size} bulan) · ${coverage(available)}</p><strong>Pembanding · ${rangeLabel(priorExpected)}</strong><p>Data tersedia (${priorAvailable.length}/${size} bulan) · ${coverage(priorAvailable)}</p>${comparable?'':'<p>Perubahan belum ditampilkan karena cakupan kedua periode belum lengkap.</p>'}</div>
+ <div class="ak-panel ask-report-periods"><div><small>Periode laporan</small><strong>${rangeLabel(expected)}</strong><p>Data tersedia (${available.length}/${size} bulan) · ${coverage(available)}</p></div><div><small>Periode pembanding</small><strong>${rangeLabel(priorExpected)}</strong><p>Data tersedia (${priorAvailable.length}/${size} bulan) · ${coverage(priorAvailable)}</p></div>${comparable?'':'<p>Perubahan belum ditampilkan karena cakupan kedua periode belum lengkap.</p>'}</div>
  ${!available.length?'<div class="ak-panel"><h3>Belum ada data untuk periode ini</h3><p>Pilih periode lain untuk melihat hasil ASK.</p></div>':`<section><h3>Cakupan · ${scope}</h3><p><strong>${num(total)} ${unit}</strong> ${countComparison(total,previous?previousTotal:undefined)}${size===1?'':' Satu CSR dapat menyumbang satu penilaian setiap bulan.'}</p><div class="ask-report-grid">${channelCards}</div></section>
  <section><h3>Kelulusan · ${scope}</h3><p>Jumlah tidak lulus dihitung per dimensi.</p><div class="ask-report-national">${summary}</div></section>
- <section><h3>Kelulusan per segmen</h3><p>High = skor ≥80. Low = skor di bawah 80. ${previous?'Garis pada batang menandai persentase bulan sebelumnya.':''}</p>${nationalFindings}<div class="ask-report-segments">${cards}</div></section>
- <section class="ak-panel ask-report-trend"><h3>Tren High bulanan · ${scope}</h3><p>Perubahan dibanding bulan kalender sebelumnya, dalam poin persentase.</p>
- <div class="ask-report-table-scroll"><table><thead><tr><th scope="col">Bulan</th><th scope="col">CSR dinilai</th>${dimensions.map(name=>`<th scope="col">${name}</th>`).join('')}</tr></thead><tbody>${trend}</tbody></table></div></section>
+ ${trend ? localAskHighTrend(trend, scope, dimensions) : ''}
+ <section><h3>Kelulusan per segmen</h3><p>High = skor ≥80. Low = skor di bawah 80. ${previous?'Garis pada batang menandai persentase periode sebelumnya.':''}</p>${nationalFindings}<div class="ask-report-segments">${cards}</div></section>
  <section class="ak-panel ask-report-extra"><div class="ask-quadrant-heading"><div><h3>Distribusi kuadran ASK</h3><p>Posisi terakhir setiap CSR dalam periode. Setiap kuadran menunjukkan kombinasi kelulusan Attitude, Skill, dan Knowledge. Nilai 80 ke atas dinyatakan lulus.</p></div>
  <label>Urutkan berdasarkan total CSR <select id="localAskQuadrantOrder"><option value="desc" ${localAskQuadrantOrder==='desc'?'selected':''}>Terbanyak ke tersedikit</option><option value="asc" ${localAskQuadrantOrder==='asc'?'selected':''}>Tersedikit ke terbanyak</option></select></label></div>
  <ul class="ask-quadrant-legend">${segments.map(name=>`<li><i style="background:${quadrantColors[name]}" aria-hidden="true"></i>${el(segmentNames[name])}</li>`).join('')}</ul>
@@ -339,7 +907,31 @@ function bindLocalAskReset() {
  });
 }
 
-function bindAskDashboard(){bindLocalAskReset();bindLocalAskDetails();for(const [field,id] of [['area','localAskArea'],['region','localAskRegion'],['unit','localAskUnit']]){document.getElementById(id)?.addEventListener('change',event=>{localAskLocation[field]=event.target.value;if(field==='area')localAskLocation.region='';if(field!=='unit')localAskLocation.unit='';render();document.getElementById(id)?.focus({preventScroll:true})})}document.getElementById('localAskChannel')?.addEventListener('change',e=>{localAskChannel=e.target.value;localAskModel='';Object.assign(localAskLocation,{area:'',region:'',unit:''});render();document.getElementById('localAskChannel')?.focus({preventScroll:true})});document.getElementById('localAskModel')?.addEventListener('change',e=>{localAskModel=e.target.value;Object.assign(localAskLocation,{area:'',region:'',unit:''});render();document.getElementById('localAskModel')?.focus({preventScroll:true})});document.getElementById('localAskWindow')?.addEventListener('change',e=>{localAskWindow=e.target.value;render();document.getElementById('localAskWindow')?.focus({preventScroll:true})});document.getElementById('localAskQuadrantOrder')?.addEventListener('change',e=>{localAskQuadrantOrder=e.target.value;render();document.getElementById('localAskQuadrantOrder')?.focus({preventScroll:true})});if(document.querySelector('.ak-dashboard'))loadLocalAskReport();document.getElementById('localAskMonth')?.addEventListener('change',e=>{localAskMonth=e.target.value;render()});document.querySelectorAll('[data-ask-pdf]').forEach(b=>b.onclick=askDownloadSummary);document.getElementById('askActivityCategory')?.addEventListener('change',e=>{category=e.target.value;askDetailPage=0;render()});document.getElementById('askPerformanceWindow')?.addEventListener('change',e=>{askPerformanceWindow=e.target.value;if(askPerformanceWindow==='YTD')reportFrom=reportTo.slice(0,4)+'-01-01';askDetailPage=0;render()});document.getElementById('askSegment')?.addEventListener('change',e=>{askSegmentFilter=e.target.value;askDetailPage=0;render()});document.querySelectorAll('[data-ask-quadrant]').forEach(b=>b.onclick=()=>{askQuadrantFilter=b.dataset.askQuadrant;askDetailPage=0;render();document.getElementById('askAgentDetail')?.focus({preventScroll:true});document.getElementById('askAgentDetail')?.scrollIntoView({behavior:'smooth',block:'start'})});document.querySelectorAll('[data-ask-reset]').forEach(b=>b.onclick=()=>{askQuadrantFilter='All';askSegmentFilter='All';askDetailQuery='';askDetailPage=0;render()});document.getElementById('askSearchForm')?.addEventListener('submit',e=>{e.preventDefault();askDetailQuery=e.target.elements.search.value.trim();askDetailPage=0;render()});document.querySelectorAll('[data-ask-page]').forEach(b=>b.onclick=()=>{askDetailPage=Number(b.dataset.askPage);render()});document.querySelectorAll('[data-ask-export]').forEach(b=>b.onclick=()=>{const rows=askDetailRows(filtered());if(!rows.length){notify('Tidak ada data untuk diekspor');return}csvDownload('OmniKnow-ASK-'+reportFrom+'-'+reportTo,rows.map(a=>{const e=askExcelLogic(a);return {agent_id:a.id,name:a.name,segment:askSegment(a),location:agentLocation(a),region:a.region,attitude:a.attitude,skill:a.skill,knowledge:a.knowledge,weighted_ask:e.score,quadrant:e.quadrant,recommendation:e.recommendation,talent:e.talent,from:reportFrom,to:reportTo,comparison_window:askPerformanceWindow,comparison_from:askComparisonBounds().from,comparison_to:askComparisonBounds().to,source:isShowcaseAgent(a)?'Synthetic demo':'Local record'}}))})}
+function bindLocalAskHighTrend() {
+ const chart = document.querySelector('.ask-report-trend');
+ if (!chart) return;
+ const points = [...chart.querySelectorAll('[data-ask-trend-point]')];
+ const details = chart.querySelectorAll('[data-ask-trend-detail]');
+ let active = points.find(point=>point.getAttribute('aria-pressed')==='true');
+ for (const point of points) {
+  const select = ()=>{
+   if (point === active) return;
+   active?.setAttribute('aria-pressed','false');
+   point.setAttribute('aria-pressed','true');
+   active = point;
+   for (const detail of details) detail.hidden = detail.dataset.askTrendDetail !== point.dataset.askTrendPoint;
+  };
+  point.addEventListener('click',select);
+  point.addEventListener('pointerenter',event=>{if(event.pointerType==='mouse') select()});
+  point.addEventListener('keydown',event=>{
+   if (event.key !== 'Enter' && event.key !== ' ') return;
+   event.preventDefault();
+   select();
+  });
+ }
+}
+
+function bindAskDashboard(){bindLocalAskReset();bindLocalAskDetails();bindLocalAskHighTrend();for(const [field,id] of [['area','localAskArea'],['region','localAskRegion'],['unit','localAskUnit']]){document.getElementById(id)?.addEventListener('change',event=>{localAskLocation[field]=event.target.value;if(field==='area')localAskLocation.region='';if(field!=='unit')localAskLocation.unit='';render();document.getElementById(id)?.focus({preventScroll:true})})}document.getElementById('localAskChannel')?.addEventListener('change',e=>{localAskChannel=e.target.value;localAskModel='';Object.assign(localAskLocation,{area:'',region:'',unit:''});render();document.getElementById('localAskChannel')?.focus({preventScroll:true})});document.getElementById('localAskModel')?.addEventListener('change',e=>{localAskModel=e.target.value;Object.assign(localAskLocation,{area:'',region:'',unit:''});render();document.getElementById('localAskModel')?.focus({preventScroll:true})});document.getElementById('localAskWindow')?.addEventListener('change',e=>{localAskWindow=e.target.value;render();document.getElementById('localAskWindow')?.focus({preventScroll:true})});document.getElementById('localAskQuadrantOrder')?.addEventListener('change',e=>{localAskQuadrantOrder=e.target.value;render();document.getElementById('localAskQuadrantOrder')?.focus({preventScroll:true})});if(document.querySelector('.ak-dashboard'))loadLocalAskReport();document.getElementById('localAskMonth')?.addEventListener('change',e=>{localAskMonth=e.target.value;render()});document.querySelectorAll('[data-ask-pdf]').forEach(b=>b.onclick=askDownloadSummary);document.getElementById('askActivityCategory')?.addEventListener('change',e=>{category=e.target.value;askDetailPage=0;render()});document.getElementById('askPerformanceWindow')?.addEventListener('change',e=>{askPerformanceWindow=e.target.value;if(askPerformanceWindow==='YTD')reportFrom=reportTo.slice(0,4)+'-01-01';askDetailPage=0;render()});document.getElementById('askSegment')?.addEventListener('change',e=>{askSegmentFilter=e.target.value;askDetailPage=0;render()});document.querySelectorAll('[data-ask-quadrant]').forEach(b=>b.onclick=()=>{askQuadrantFilter=b.dataset.askQuadrant;askDetailPage=0;render();document.getElementById('askAgentDetail')?.focus({preventScroll:true});document.getElementById('askAgentDetail')?.scrollIntoView({behavior:'smooth',block:'start'})});document.querySelectorAll('[data-ask-reset]').forEach(b=>b.onclick=()=>{askQuadrantFilter='All';askSegmentFilter='All';askDetailQuery='';askDetailPage=0;render()});document.getElementById('askSearchForm')?.addEventListener('submit',e=>{e.preventDefault();askDetailQuery=e.target.elements.search.value.trim();askDetailPage=0;render()});document.querySelectorAll('[data-ask-page]').forEach(b=>b.onclick=()=>{askDetailPage=Number(b.dataset.askPage);render()});document.querySelectorAll('[data-ask-export]').forEach(b=>b.onclick=()=>{const rows=askDetailRows(filtered());if(!rows.length){notify('Tidak ada data untuk diekspor');return}csvDownload('OmniKnow-ASK-'+reportFrom+'-'+reportTo,rows.map(a=>{const e=askExcelLogic(a);return {agent_id:a.id,name:a.name,segment:askSegment(a),location:agentLocation(a),region:a.region,attitude:a.attitude,skill:a.skill,knowledge:a.knowledge,weighted_ask:e.score,quadrant:e.quadrant,recommendation:e.recommendation,talent:e.talent,from:reportFrom,to:reportTo,comparison_window:askPerformanceWindow,comparison_from:askComparisonBounds().from,comparison_to:askComparisonBounds().to,source:isShowcaseAgent(a)?'Synthetic demo':'Local record'}}))})}
 
 function askFilters(){return `<section class="ak-topfilters" aria-label="Filter ASK"><label>Channel / CTP<select id="ctp"><option>All CTPs</option>${CTPS.map(c=>`<option value="${c}" ${ctp===c?'selected':''}>${c==='Contact Center'?'Call Center':c}</option>`).join('')}</select></label><label>Area / Site<select id="ctpScope"><option value="All locations">All Areas / Sites</option>${locationOptions().map(l=>`<option ${ctpScope===l?'selected':''}>${el(l)}</option>`).join('')}</select></label><label>Region<select id="region"><option>All Regions</option>${(area==='All Areas'?ALL_REGIONS:REGIONS[area]||[]).map(r=>`<option ${region===r?'selected':''}>${el(r)}</option>`).join('')}</select></label><label>Cari agen / region<input id="search" value="${el(q)}" placeholder="Nama atau ID agen"></label><button class="btn" id="searchNow">Cari</button><button class="ak-link" id="resetFilters">Reset filter</button>${area!=='All Areas'||category!=='All Categories'?`<p class="ak-inherited">Filter lintas halaman: ${el(area)} · ${el(category)}. Reset filter untuk menghapus.</p>`:''}</section>`}
 

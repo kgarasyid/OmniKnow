@@ -1,16 +1,42 @@
 """Read cached ASK scores and emit monthly aggregates without agent identifiers."""
+from decimal import Decimal
 import json
 import math
 from pathlib import Path
 import re
 import sys
-import xml.etree.ElementTree as ET
-import zipfile
+from xlsx_rows import xlsx_records
 
 MONTHS = {"agustus": "08", "sept": "09", "okt": "10"}
+SOURCE_MONTHS = {
+    alias: month
+    for month, aliases in enumerate((
+        ("jan", "januari", "january"),
+        ("feb", "februari", "february"),
+        ("mar", "maret", "march"),
+        ("apr", "april"),
+        ("mei", "may"),
+        ("jun", "juni", "june"),
+        ("jul", "juli", "july"),
+        ("agu", "ags", "agt", "agustus", "aug", "august"),
+        ("sep", "sept", "september"),
+        ("okt", "oktober", "oct", "october"),
+        ("nov", "november"),
+        ("des", "desember", "dec", "december"),
+    ), 1)
+    for alias in aliases
+}
+SOURCE_BUCKETS = ("tappingCurrent", "tappingPrior", "rollup", "other", "unclassified")
 SEGMENTS = ("Walk In Mitra", "Walk In TOMO", "Call In", "E-Care")
 DIMENSIONS = ("attitude", "skill", "knowledge")
 REQUIRED = ("nik siad", "job", "ctp", "business model", "kuadran ask", "area", "regional", "unit id", "unit name", *DIMENSIONS)
+TALENT_POOL = {
+    "excellent performance": "excellent",
+    "good performance": "good",
+    "core performance": "core",
+    "growth potential": "growth",
+}
+WEIGHTS = (4, 3, 3)
 
 
 # Published findings from slides 4–5 of Monthly Update ASK, September 2026.
@@ -30,7 +56,8 @@ SEPTEMBER_FINDINGS = {
 
 
 def empty_group():
-    return {"total": 0, "high": [0, 0, 0], "quadrants": {}}
+    return {"total": 0, "scoreSum": 0, "dimensionSums": [0, 0, 0],
+            "high": [0, 0, 0], "quadrants": {}, "talentPool": {}, "scoreBands": {}}
 
 
 def location_keys(location):
@@ -38,45 +65,87 @@ def location_keys(location):
             for depth in (2, 3, 5))
 
 
-def summarize(path, include_details):
-    with zipfile.ZipFile(path) as book:
-        strings = []
-        if "xl/sharedStrings.xml" in book.namelist():
-            strings = ["".join(t.text or "" for t in node.iterfind(".//{*}t"))
-                       for node in ET.fromstring(book.read("xl/sharedStrings.xml"))]
-        sheets = ET.fromstring(book.read("xl/workbook.xml")).iterfind(".//{*}sheet")
-        sheet = next(s for s in sheets if s.get("name", "").strip().casefold() == "data ask")
-        sheet_id = next(value for key, value in sheet.attrib.items() if key.endswith("}id"))
-        relations = ET.fromstring(book.read("xl/_rels/workbook.xml.rels"))
-        target = next(rel.get("Target") for rel in relations if rel.get("Id") == sheet_id)
-        root = ET.fromstring(book.read(target.lstrip("/") if target.startswith("/") else "xl/" + target))
+def talent_pool_band(row, weighted_score):
+    if "talent pool" in row:
+        return TALENT_POOL.get(row["talent pool"].casefold(), "unclassified")
+    # Older exports can contain the dimension scores without a Talent Pool column.
+    return next((band for minimum, band in ((80, "excellent"), (70, "good"), (60, "core"))
+                 if weighted_score >= minimum), "growth")
 
-    def cells(row):
-        values = {}
-        for cell in row:
-            value = cell.findtext("{*}v", "")
-            kind = cell.get("t")
-            if kind == "s":
-                value = strings[int(value)]
-            elif kind == "inlineStr":
-                value = "".join(t.text or "" for t in cell.iterfind(".//{*}t"))
-            values[re.sub(r"\d", "", cell.get("r"))] = value.strip()
-        return values
 
-    rows = iter(root.iterfind(".//{*}row"))
-    headers = {name.casefold(): col for col, name in cells(next(rows)).items()}
+def count_latest_bands(placements):
+    talent_groups, talent_locations = {}, {}
+    score_groups, score_locations = {}, {}
+    for segment, _, location, _, _, talent, score_band in placements:
+        keys = tuple(location_keys(location))
+        for groups, locations, band in ((talent_groups, talent_locations, talent),
+                                        (score_groups, score_locations, score_band)):
+            counts = groups.setdefault(segment, {})
+            counts[band] = counts.get(band, 0) + 1
+            for key in keys:
+                counts = locations.setdefault(key, {}).setdefault(segment, {})
+                counts[band] = counts.get(band, 0) + 1
+    return {"latestTalentPool": talent_groups, "latestLocationTalentPool": talent_locations,
+            "latestScoreBands": score_groups, "latestLocationScoreBands": score_locations}
+
+
+def assessment_source(note, year, month):
+    note = note.strip().casefold()
+    if re.match(r"^(?:(?:roll[\s-]*up|nilai)\s+)?(?:tl|spv)\b", note):
+        return "rollup"
+    if re.match(r"^(?:nilai\s+)?tapping\s+team\b", note):
+        return "other"
+    if not re.match(r"^(?:nilai\s+)?tapping\b", note):
+        return "unclassified"
+    match = re.search(r"\b([a-z]+)\.?(?:[\s'’]+([0-9]{2}|[0-9]{4}))?\s*$", note)
+    if not match or match[1] not in SOURCE_MONTHS:
+        return "unclassified"
+    source_month = SOURCE_MONTHS[match[1]]
+    source_year = int(match[2]) if match[2] else None
+    if source_year is not None and source_year < 100:
+        source_year += 2000
+    if source_month == month and source_year in (None, year):
+        return "tappingCurrent"
+    prior_year, prior_month = (year, month - 1) if month > 1 else (year - 1, 12)
+    if source_month == prior_month and source_year in (None, prior_year):
+        return "tappingPrior"
+    return "other"
+
+
+def read_tryout_scores(row, columns):
+    scores = []
+    session_columns = [key for key in columns if key in row]
+    for key in session_columns or ["nilai to"]:
+        try:
+            score = float(row.get(key, ""))
+        except ValueError:
+            continue
+        if 0 <= score <= 100:
+            scores.append(score)
+    return scores
+
+
+def band_for_score(score):
+    return "high" if score >= 90 else "mid" if score >= 80 else "low"
+
+
+def summarize(path, period, include_details):
+    year, month = map(int, period.split("-"))
     required = (*REQUIRED, "employee name") if include_details else REQUIRED
-    if not all(name in headers for name in required):
-        raise ValueError("Missing ASK headers")
+    suffixes = ["", *(f" {alias}" for alias, number in SOURCE_MONTHS.items() if number == month)]
+    tryout_columns = tuple(f"to {slot}{suffix}" for slot in (1, 2, 3) for suffix in suffixes)
+    optional = ("talent pool", "notes qa", "nilai to", *tryout_columns)
     groups = {name: empty_group() for name in SEGMENTS}
+    csr_counts = dict.fromkeys((*SEGMENTS, "GraPARI model belum tercatat", "CTP belum terpetakan"), 0)
     excluded = incomplete = unassigned = 0
     seen = set()
     placements = {}
     locations = {}
-    for row in rows:
-        values = cells(row)
-        def field(name):
-            return values.get(headers[name], "")
+    csr_locations = {}
+    tryout_scores = {}
+    tryout_locations = {}
+    for row in xlsx_records(path, "Data ASK", required, optional=optional):
+        field = row.__getitem__
         agent = field("nik siad")
         if not agent:
             continue
@@ -84,15 +153,8 @@ def summarize(path, include_details):
             raise ValueError("Duplicate ASK ID")
         seen.add(agent)
         quadrant = field("kuadran ask")
-        if field("job").casefold() in {"non agent", "cs sar"} or quadrant.casefold() == "non kuadran":
+        if field("job").casefold() in {"non agent", "cs sar"}:
             excluded += 1
-            continue
-        try:
-            scores = [float(field(key)) for key in DIMENSIONS]
-        except ValueError:
-            scores = []
-        if len(scores) != 3 or not all(math.isfinite(score) and 0 <= score <= 100 for score in scores):
-            incomplete += 1
             continue
         ctp = field("ctp").casefold()
         model = field("business model").casefold()
@@ -102,28 +164,69 @@ def summarize(path, include_details):
         }.get((ctp, model)) if ctp == "grapari" else {
             "call center": "Call In", "ecare": "E-Care", "e-care": "E-Care",
         }.get(ctp)
+        csr_bucket = segment or ("GraPARI model belum tercatat" if ctp == "grapari" else "CTP belum terpetakan")
+        csr_counts[csr_bucket] += 1
+        channel = {"grapari": "GraPARI", "call center": "Call Center"}.get(ctp, "E-Care")
+        area = (field("area") or "Area belum tersedia") if channel == "GraPARI" else ""
+        region = field("regional") or "Region belum tersedia"
+        unit_name = field("unit name") or "Unit belum tersedia"
+        location = (channel, area, region, field("unit id"), unit_name)
+        mapped_ctp = ctp in {"grapari", "call center", "ecare", "e-care"}
+        scoped_keys = list(location_keys(location)) if mapped_ctp else []
+        for key in scoped_keys:
+            bucket = csr_locations.setdefault(key, {})
+            bucket[csr_bucket] = bucket.get(csr_bucket, 0) + 1
+        # TO is independent of ASK eligibility. Include valid scores from the full CSR roster.
+        scores_to = read_tryout_scores(row, tryout_columns)
+        if scores_to:
+            results = {"count": len(scores_to), "sum": sum(scores_to), "high": 0, "mid": 0, "low": 0}
+            for score in scores_to:
+                results[band_for_score(score)] += 1
+            for bucket in (tryout_scores, *(tryout_locations.setdefault(key, {}) for key in scoped_keys)):
+                group = bucket.setdefault(csr_bucket, dict.fromkeys(results, 0))
+                for key, value in results.items():
+                    group[key] += value
+        if quadrant.casefold() == "non kuadran":
+            excluded += 1
+            continue
+        try:
+            scores = [float(field(key)) for key in DIMENSIONS]
+        except ValueError:
+            scores = []
+        if len(scores) != 3 or not all(math.isfinite(score) and 0 <= score <= 100 for score in scores):
+            incomplete += 1
+            continue
         if segment is None:
             unassigned += 1
             continue
         label = quadrant.upper()
         if not re.fullmatch(r"(?:HAHAKO|HALOKO|LOHAKO|LOLOKO) \((?:HA|LA)\)", label):
             label = "BELUM TERSEDIA"
-        channel = {"grapari": "GraPARI", "call center": "Call Center"}.get(ctp, "E-Care")
-        area = (field("area") or "Area belum tersedia") if channel == "GraPARI" else ""
-        region = field("regional") or "Region belum tersedia"
-        unit_name = field("unit name") or "Unit belum tersedia"
-        location = (channel, area, region, field("unit id"), unit_name)
-        placements[agent] = (segment, label, location, field("employee name") if include_details else "", scores if include_details else None)
+        weighted_score = sum(Decimal(field(key)) * weight for key, weight in zip(DIMENSIONS, WEIGHTS)) / 10
+        talent = talent_pool_band(row, weighted_score)
+        score_band = band_for_score(weighted_score)
+        placements[agent] = (segment, label, location, field("employee name") if include_details else "",
+                             scores if include_details else None, talent, score_band)
         buckets = [groups[segment]]
-        for key in location_keys(location):
+        for key in scoped_keys:
             by_segment = locations.setdefault(key, {})
             buckets.append(by_segment.setdefault(segment, empty_group()))
+        final_score = float(weighted_score)
+        source = assessment_source(row["notes qa"], year, month) if "notes qa" in row else None
         for group in buckets:
             group["total"] += 1
+            group["scoreSum"] += final_score
+            if source is not None:
+                counts = group.setdefault("sources", dict.fromkeys(SOURCE_BUCKETS, 0))
+                counts[source] += 1
             for index, score in enumerate(scores):
+                group["dimensionSums"][index] += score
                 group["high"][index] += score >= 80
             group["quadrants"][label] = group["quadrants"].get(label, 0) + 1
-    return {"groups": groups, "locations": locations, "excluded": excluded,
+            group["talentPool"][talent] = group["talentPool"].get(talent, 0) + 1
+            group["scoreBands"][score_band] = group["scoreBands"].get(score_band, 0) + 1
+    return {"groups": groups, "locations": locations, "csrCounts": csr_counts, "csrLocations": csr_locations,
+            "tryoutScores": tryout_scores, "tryoutLocations": tryout_locations, "excluded": excluded,
             "incomplete": incomplete, "unassigned": unassigned}, placements
 
 
@@ -141,7 +244,7 @@ def read_months(folder, include_details=False):
             continue
         if period in months:
             raise ValueError("Multiple ASK workbooks for one month")
-        months[period], placements[period] = summarize(path, include_details)
+        months[period], placements[period] = summarize(path, period, include_details)
     if not months:
         raise ValueError("No ASK workbooks found")
     september = months.get("2026-09")
@@ -165,13 +268,15 @@ def read_months(folder, include_details=False):
                     latest.update(placements[available])
             counts = {name: {} for name in SEGMENTS}
             scoped = {}
-            for name, label, location, _, _ in latest.values():
+            for name, label, location, *_ in latest.values():
                 counts[name][label] = counts[name].get(label, 0) + 1
                 for key in location_keys(location):
                     bucket = scoped.setdefault(key, {}).setdefault(name, {})
                     bucket[label] = bucket.get(label, 0) + 1
             summary["latestLocationQuadrants"][mode] = scoped
             summary["latestQuadrants"][mode] = counts
+            if mode == "ytd":
+                summary.update(count_latest_bands(latest.values()))
     return {"summary": months, "placements": placements} if include_details else months
 
 

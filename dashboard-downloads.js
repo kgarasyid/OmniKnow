@@ -1,4 +1,4 @@
-function exportScope(){return `CTP: ${ctp} | Area/Site: ${ctpScope} | Region: ${region} | Geographic area: ${area} | Activity: ${category} | Agent search: ${q||'All'}`}
+function exportScope(){return `CTP: ${ctp} | Area/Site: ${ctpScope} | Region: ${region} | Geographic area: ${area} | Activity: ${category} | Agent search: ${q||'All'}${page===0?' | Location: '+dashboardLocationLabel():''}`}
 function makeDashboardPdf(title,lines,bars){
   const objects=[null],add=s=>(objects.push(s),objects.length-1),catalog=add(''),pages=add(''),font=add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'),ids=[];
   const pagesOps=[];
@@ -19,7 +19,7 @@ function downloadPagePdf(){
     savePdfBlob(makeDashboardPdf('ASK Capability Summary',lines,s.high.filter(h=>h.rate!=null).map((h,i)=>({label:['High Attitude','High Skill','High Knowledge'][i],value:h.rate,color:['#ed1639','#f18b25','#7059d9'][i]}))),'OmniKnow-ASK-'+reportFrom+'.pdf');notify('ASK PDF download requested');return;
   }
 
-  const title=page===0?DASH_TABS[dashboardTab]+(dashboardSub[dashboardTab]?' - '+dashboardSub[dashboardTab]:''):NAV[page][1];
+  const title=page===0?dashboardViewTitle()+(dashboardSub[dashboardTab]?' - '+dashboardSub[dashboardTab]:''):NAV[page][1];
   const root=document.querySelector(page===0?'.dw-panel':'.main');
   const lines=[exportScope(),...(root?.innerText||'No records').split('\n').map(s=>s.trim()).filter(Boolean)];
   const ds=rankDataset(filtered(),page===8?4:page===3?1:dashboardTab,page===8?'Post Test':dashboardSub[dashboardTab]);
