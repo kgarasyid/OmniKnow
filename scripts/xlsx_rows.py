@@ -5,6 +5,11 @@ import xml.etree.ElementTree as ET
 import zipfile
 
 
+def xlsx_sheet_names(path):
+    with zipfile.ZipFile(path) as book:
+        return [node.attrib["name"] for node in ET.fromstring(book.read("xl/workbook.xml")).iterfind(".//{*}sheet")]
+
+
 def xlsx_rows(path, sheet_name):
     with zipfile.ZipFile(path) as book:
         strings = []

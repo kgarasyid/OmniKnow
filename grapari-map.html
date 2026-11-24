@@ -31,7 +31,7 @@ button:focus-visible, summary:focus-visible { outline:3px solid #2c1645; outline
 [data-area="Area 3"] { --area-color:var(--area-3); }
 [data-area="Area 4"] { --area-color:var(--area-4); }
 .area-controls button { padding:6px 10px; border:1px solid color-mix(in srgb,var(--area-color,#a6002a) 40%,white); border-radius:7px; background:white; color:color-mix(in srgb,var(--area-color,#a6002a) 70%,black); font-weight:700; }
-.area-controls button[aria-pressed="true"] { background:color-mix(in srgb,var(--area-color) 72%,black); color:white; }
+.area-controls button[aria-pressed="true"] { background:color-mix(in srgb,var(--area-color,#a6002a) 72%,black); color:white; }
 .stage { min-height:300px; container-type:inline-size; }
 .stage .region-pin .pin-count { font-size:14px; width:var(--cluster-size); height:var(--cluster-size); box-shadow:0 0 0 3px color-mix(in srgb,var(--area-color) 24%,transparent),0 3px 8px #280c2244; }
 .stage .region-pin .region-label { font-size:10px; }
@@ -70,20 +70,38 @@ li { display:flex; align-items:flex-start; gap:7px; }
 @media(max-width:500px) { .region-pin .pin-count { width:calc(var(--cluster-size)*.75); height:calc(var(--cluster-size)*.75); } }
 .branch-pin { position:absolute; display:grid; place-items:center; width:24px; height:24px; padding:3px; border:1px solid #a6002a; border-radius:50%; background:white; box-shadow:0 1px 3px #6b002b50; transform:translate(-50%,-95%); z-index:2; }
 .branch-pin[hidden] { display:none; }
-body.call-center .stage { min-height:260px; max-height:390px; }
-body.call-center .om-land { fill:#f4bac9; stroke:#fff5f8; }
-body.call-center .depth { filter:brightness(.61) saturate(1.3); }
-.tower-pin {
-  position:absolute; display:grid; place-items:center; gap:2px; min-width:44px; padding:4px 7px;
-  transform:translate(-50%,-100%); border:1px solid #cc5371; border-radius:8px;
-  background:#fff; color:#a6002a; font-size:11px; font-weight:750; box-shadow:0 2px 6px #73072822;
+body.site-map[data-map-channel="Call Center"] {
+  --map-accent:#14764b; --map-dark:#094630; --map-tint:#edf7f0; --map-edge:#cfe8d9;
 }
-.tower-pin svg { position:static; width:22px; height:22px; }
-.tower-pin[aria-pressed=true] { background:#a6002a; color:#fff; border-color:#a6002a; }
-.tower-pin[hidden] { display:none; }
-.tower-leader { stroke:#a6002a; stroke-width:1.4; vector-effect:non-scaling-stroke; }
-.tower-anchor { fill:#a6002a; stroke:#fff; stroke-width:.8; vector-effect:non-scaling-stroke; }
-.tower-detail { margin:10px 0; min-height:20px; color:#301921; font-weight:650; }
+body.site-map[data-map-channel="E-Care"] {
+  --map-accent:#2b74ad; --map-dark:#1b365d; --map-tint:#edf5fc; --map-edge:#d2e5f5;
+}
+body.site-map .stage {
+  border-color:var(--map-edge);
+  background:radial-gradient(ellipse at 52% 42%,#fff 0%,var(--map-tint) 53%,var(--map-edge) 100%);
+}
+body.site-map :is(h2,header p,.note,.stage-legend,.controls button) { color:var(--map-dark); }
+body.site-map .controls button { border-color:var(--map-edge); }
+body.site-map .controls button:hover { background:var(--map-tint); }
+.site-map :is(.national-search .branch-search,.national-results p) { color:var(--map-dark); }
+.site-map :is(.national-search input,.national-search button,.national-match,.area-controls button) {
+  border-color:var(--map-edge); color:var(--map-dark);
+}
+.site-map :is(.national-search button[type=submit],.area-controls button[aria-pressed=true]) {
+  background:var(--map-dark); border-color:var(--map-dark); color:#fff;
+}
+.site-map .area-controls button:disabled { opacity:.55; cursor:default; }
+.site-pin {
+  position:absolute; display:grid; place-items:center; gap:2px; min-width:44px; padding:4px 7px;
+  transform:translate(-50%,-100%); border:1px solid var(--map-accent); border-radius:8px;
+  background:#fff; color:var(--map-dark); font-size:11px; font-weight:750; box-shadow:0 2px 6px #1b365d22;
+}
+.site-pin svg { position:static; width:22px; height:22px; }
+.site-pin[aria-pressed=true] { background:var(--map-dark); color:#fff; border-color:var(--map-dark); }
+.site-pin[hidden] { display:none; }
+.site-leader { stroke:var(--map-dark); stroke-width:1.4; vector-effect:non-scaling-stroke; }
+.site-anchor { fill:var(--map-dark); stroke:#fff; stroke-width:.8; vector-effect:non-scaling-stroke; }
+.site-detail { margin:10px 0; min-height:20px; color:var(--map-dark); font-weight:650; }
 .branch-pin .pin-icon { color:var(--area-color); }
 .branch-pin[aria-pressed="true"] { background:color-mix(in srgb,var(--area-color) 70%,black); z-index:3; }
 .branch-pin[aria-pressed="true"] .pin-icon { color:white; }
@@ -132,7 +150,7 @@ li { border-top:1px solid #f4dbe1; padding:6px 1px; overflow-wrap:anywhere; }
   </div>
 </header>
 <form class="national-search" id="national-search" role="search">
-  <label class="branch-search">Cari GraPARI se-Indonesia
+  <label class="branch-search"><span id="national-search-label">Cari GraPARI se-Indonesia</span>
     <input type="search" id="national-query" placeholder="Contoh: Makassar" autocomplete="off" required disabled>
   </label>
   <button type="submit" disabled>Cari</button>
@@ -140,10 +158,11 @@ li { border-top:1px solid #f4dbe1; padding:6px 1px; overflow-wrap:anywhere; }
 </form>
 <div class="national-results" id="national-results"></div>
 <div class="area-controls" aria-label="Saring regional berdasarkan area">
-  <button type="button" class="area-button" aria-controls="area-details" aria-pressed="false" disabled>Area 1</button>
-  <button type="button" class="area-button" aria-controls="area-details" aria-pressed="false" disabled>Area 2</button>
-  <button type="button" class="area-button" aria-controls="area-details" aria-pressed="false" disabled>Area 3</button>
-  <button type="button" class="area-button" aria-controls="area-details" aria-pressed="false" disabled>Area 4</button>
+  <button type="button" class="area-button" data-area="" aria-controls="area-details" aria-pressed="false" title="Semua area sesuai filter dashboard" disabled>All Area</button>
+  <button type="button" class="area-button" data-area="Area 1" aria-controls="area-details" aria-pressed="false" disabled>Area 1</button>
+  <button type="button" class="area-button" data-area="Area 2" aria-controls="area-details" aria-pressed="false" disabled>Area 2</button>
+  <button type="button" class="area-button" data-area="Area 3" aria-controls="area-details" aria-pressed="false" disabled>Area 3</button>
+  <button type="button" class="area-button" data-area="Area 4" aria-controls="area-details" aria-pressed="false" disabled>Area 4</button>
 </div>
 <div class="map-workspace">
 <div class="stage">
@@ -314,7 +333,11 @@ li { border-top:1px solid #f4dbe1; padding:6px 1px; overflow-wrap:anywhere; }
 <script>
 const world = document.getElementById('world');
 const mapQuery = new URLSearchParams(location.search);
-const mapChannel = mapQuery.get('view')==='call-center' ? 'Call Center' : 'GraPARI';
+const siteChannels = new Map([['call-center','Call Center'],['e-care','E-Care']]);
+const mapChannel = siteChannels.get(mapQuery.get('view')) || 'GraPARI';
+const isSiteMap = mapChannel !== 'GraPARI';
+const mapAreas = mapQuery.getAll('reportArea');
+const mapAreaIncluded = area => !mapAreas.length || mapAreas.includes(mapChannel==='GraPARI' ? area : mapChannel);
 function sendMapScope(mapArea='',mapRegion='',unit='',unitId='',activate=false) {
   if (parent!==window) parent.postMessage({type:'omniknow-map-scope',channel:mapChannel,mapArea,mapRegion,unit,unitId,activate},location.origin);
 }
@@ -376,12 +399,11 @@ const clusterLines = new Map();
 const pinIcon = '<span class="pin-icon" aria-hidden="true"><svg viewBox="0 0 16 20"><path d="M8 0a8 8 0 0 0-8 8c0 5 8 12 8 12s8-7 8-12a8 8 0 0 0-8-8Zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z"/></svg></span>';
 let regionPins = [];
 let branchPins = [];
-const towerPins = [];
-const towerAnchors = new Map();
-let resetCallCenter;
+const sitePins = [];
+const siteAnchors = new Map();
+let resetSiteMap;
 let locations = {};
-const initialAngle = mapChannel==='Call Center' ? -7 : 0;
-let angle = initialAngle;
+let angle = 0;
 let directory;
 
 function drawMap() {
@@ -391,7 +413,7 @@ function drawMap() {
   const b = -c*tilt, d = a*tilt;
   const matrix = new DOMMatrix([a,b,c,d,360-a*360-c*140,140-b*360-d*140]);
   world.setAttribute('transform', matrix.toString());
-  for (const pin of [...regionPins, ...branchPins, ...towerPins]) {
+  for (const pin of [...regionPins, ...branchPins, ...sitePins]) {
     const point = matrix.transformPoint(new DOMPoint(Number(pin.dataset.x), Number(pin.dataset.y)));
     const anchor = {x:point.x,y:point.y};
     point.x += Number(pin.dataset.offsetX || 0);
@@ -407,7 +429,7 @@ function drawMap() {
       line.setAttribute('x2',point.x);
       line.setAttribute('y2',point.y);
     }
-    const dot = towerAnchors.get(pin);
+    const dot = siteAnchors.get(pin);
     if (dot) {
       dot.style.display = pin.hidden ? 'none' : '';
       dot.setAttribute('cx',anchor.x);
@@ -436,7 +458,7 @@ async function readMapRoster(month) {
   const period = /^\d{4}-(?:0[1-9]|1[0-2])$/.test(month || '') ? month : Object.keys(months).sort().at(-1);
   const units = Object.entries(months[period]?.csrLocations || {}).flatMap(([key,counts])=>{
     const [channel,area,region,id,unit] = JSON.parse(key);
-    if (channel!==mapChannel || !unit) return [];
+    if (channel!==mapChannel || !unit || !mapAreaIncluded(area)) return [];
     return [{area,region,id:String(id || ''),unit,count:Object.values(counts).reduce((sum,count)=>sum+count,0)}];
   });
   const periodLabel = period ? new Intl.DateTimeFormat('id-ID',{month:'long',year:'numeric',timeZone:'UTC'})
@@ -558,12 +580,14 @@ function searchNational(event) {
   results[0]?.click();
 }
 
-nationalSearch.addEventListener('submit',searchNational);
-clearNational.addEventListener('click',() => {
-  resetNationalSearch();
-  showMap();
-  nationalQuery.focus();
-});
+if (!isSiteMap) {
+  nationalSearch.addEventListener('submit',searchNational);
+  clearNational.addEventListener('click',() => {
+    resetNationalSearch();
+    showMap();
+    nationalQuery.focus();
+  });
+}
 
 function openMapDetails(details, marker) {
   detailTrigger = marker;
@@ -704,9 +728,9 @@ document.querySelector('.controls').addEventListener('click', ({target}) => {
     case 'left': angle = Math.max(-30,angle-6); break;
     case 'right': angle = Math.min(30,angle+6); break;
     case 'reset':
-      angle = initialAngle;
-      if (mapChannel==='Call Center') {
-        resetCallCenter?.();
+      angle = 0;
+      if (isSiteMap) {
+        resetSiteMap?.();
         drawMap();
       } else {
         resetNationalSearch();
@@ -718,90 +742,156 @@ document.querySelector('.controls').addEventListener('click', ({target}) => {
   }
   drawMap();
 });
-async function showCallCenterMap(month) {
-  document.body.classList.add('call-center');
-  document.title = 'Peta Persebaran Call Center 3D';
-  document.querySelector('h2').textContent = 'Persebaran Call Center';
+async function showSiteMap(month) {
+  document.body.classList.add('site-map');
+  document.body.dataset.mapChannel = mapChannel;
+  document.title = 'Peta Persebaran '+mapChannel+' 3D';
+  document.querySelector('h2').textContent = 'Persebaran '+mapChannel;
   const summary = document.getElementById('map-summary');
-  summary.textContent = 'Memuat lokasi Call Center…';
-  for (const selector of ['#national-search','#national-results','.area-controls']) {
-    document.querySelector(selector).remove();
-  }
+  summary.textContent = 'Memuat lokasi '+mapChannel+'…';
+  document.getElementById('national-search-label').textContent = 'Cari unit '+mapChannel;
+  nationalQuery.placeholder = 'Contoh: Bandung atau Site 2';
   document.querySelector('[data-action="reset"]').textContent = 'Semua lokasi';
   legend.textContent = 'Peta Indonesia';
-  note.textContent = 'Pilih ikon tower untuk melihat distribusi ASK unit Call Center tersebut.';
+  const isCare = mapChannel === 'E-Care';
+  const iconLabel = isCare ? 'telepon' : 'tower';
+  note.textContent = `Pilih ikon ${iconLabel} untuk melihat distribusi ASK unit ${mapChannel}. Titik menunjukkan lokasi kota.`;
   const detail = document.createElement('p');
-  detail.className = 'tower-detail';
+  detail.className = 'site-detail';
   detail.setAttribute('role','status');
-  detail.textContent = 'Semua lokasi Call Center';
+  detail.textContent = 'Semua lokasi '+mapChannel;
   stage.parentElement.after(detail);
-  resetCallCenter = ()=>{
-    for (const pin of towerPins) pin.setAttribute('aria-pressed','false');
-    detail.textContent = 'Semua lokasi Call Center';
-  };
   drawMap();
 
   // City reference points, not office locations. GeoNames 1650357 and 1627896.
+  const unitPrefix = isCare ? 'ecare ' : 'cc ';
   const cities = {
-    'cc bandung': {name:'Bandung',lat:-6.92222,lng:107.60694,offsetX:-43,offsetY:-12},
-    'cc semarang': {name:'Semarang',lat:-6.99306,lng:110.42083,offsetX:43,offsetY:-23},
+    [unitPrefix+'bandung']: {site:'Site 1',name:'Bandung',lat:-6.92222,lng:107.60694,offsetX:-43,offsetY:-12},
+    [unitPrefix+'semarang']: {site:'Site 2',name:'Semarang',lat:-6.99306,lng:110.42083,offsetX:43,offsetY:-23},
   };
+  const siteControls = document.querySelector('.area-controls');
+  siteControls.setAttribute('aria-label','Pilih site '+mapChannel);
+  const siteButtons = new Map(['Semua site',...Object.values(cities).map(city=>city.site)].map(name=>{
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = name+' · 0';
+    button.setAttribute('aria-pressed',String(name==='Semua site'));
+    button.disabled = name!=='Semua site';
+    return [name,button];
+  }));
+  siteControls.replaceChildren(...siteButtons.values());
+  const selectSiteButton = name=>{
+    for (const [site,button] of siteButtons) button.setAttribute('aria-pressed',String(site===name));
+  };
+  resetSiteMap = ()=>{
+    resetNationalSearch();
+    selectSiteButton('Semua site');
+    for (const pin of sitePins) pin.setAttribute('aria-pressed','false');
+    detail.textContent = 'Semua lokasi '+mapChannel;
+  };
+  siteButtons.get('Semua site').addEventListener('click',()=>{
+    resetSiteMap();
+    sendMapScope();
+  });
+  for (const {site} of Object.values(cities)) {
+    siteButtons.get(site).addEventListener('click',()=>sitePins.find(pin=>pin.dataset.site===site)?.click());
+  }
+  const searchKey = text=>text.toLowerCase().replace(/[^a-z0-9]/g,'');
+  nationalSearch.addEventListener('submit',event=>{
+    event.preventDefault();
+    const query = searchKey(nationalQuery.value);
+    if (!query) return;
+    const matches = sitePins.filter(pin=>[pin.dataset.unit,pin.dataset.site,pin.getAttribute('aria-label')]
+      .some(value=>searchKey(value).includes(query)));
+    const status = document.createElement('p');
+    status.setAttribute('role','status');
+    status.textContent = matches.length ? mapNumber.format(matches.length)+' unit ditemukan' : 'Unit '+mapChannel+' tidak ditemukan.';
+    const buttons = matches.map(pin=>{
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'national-match';
+      button.textContent = pin.dataset.site+' · '+pin.getAttribute('aria-label');
+      button.addEventListener('click',()=>pin.click());
+      return button;
+    });
+    nationalResults.replaceChildren(status,...buttons);
+    clearNational.hidden = false;
+  });
+  clearNational.addEventListener('click',()=>{
+    resetNationalSearch();
+    nationalQuery.focus();
+  });
+  const markerPath = isCare
+    ? '<path d="M7 3H4a1 1 0 0 0-1 1c0 9.4 7.6 17 17 17a1 1 0 0 0 1-1v-3l-5-2-2 2a14 14 0 0 1-7-7l2-2-2-5Z"/>'
+    : '<path d="m6 22 6-13 6 13M8 18h8M10 14h4M8.5 4.5a5 5 0 0 0 0 7m7-7a5 5 0 0 1 0 7M6 2a8.5 8.5 0 0 0 0 12m12-12a8.5 8.5 0 0 1 0 12"/><circle cx="12" cy="8" r="1"/>';
   try {
     const {units,periodLabel} = await readMapRoster(month);
-    if (!units.length) {
-      summary.textContent = 'Lokasi Call Center belum tersedia untuk bulan laporan ini.';
+    const mappedUnits = units.filter(({unit})=>Object.hasOwn(cities,normalizeUnit(unit)));
+    if (!mappedUnits.length) {
+      summary.textContent = 'Lokasi '+mapChannel+' belum tersedia untuk filter ini.';
       detail.textContent = '';
       return;
     }
-    for (const {region,id,unit,count} of units) {
+    for (const {region,id,unit,count} of mappedUnits) {
       const city = cities[normalizeUnit(unit)];
-      if (!city) continue;
       const point = projectLocation(city);
       const line = document.createElementNS(leaders.namespaceURI,'line');
-      line.setAttribute('class','tower-leader');
+      line.setAttribute('class','site-leader');
       const anchor = document.createElementNS(leaders.namespaceURI,'circle');
-      anchor.setAttribute('class','tower-anchor');
+      anchor.setAttribute('class','site-anchor');
       anchor.setAttribute('r','2');
       leaders.append(line,anchor);
       const marker = document.createElement('button');
       marker.type = 'button';
-      marker.className = 'tower-pin';
+      marker.className = 'site-pin';
       marker.dataset.x = point.x;
       marker.dataset.y = point.y;
       marker.dataset.offsetX = city.offsetX;
       marker.dataset.offsetY = city.offsetY;
-      marker.dataset.unitId = id;
-      marker.setAttribute('aria-label','Call Center '+city.name);
+      marker.dataset.unit = unit;
+      marker.dataset.site = city.site;
+      marker.setAttribute('aria-label',mapChannel+' '+city.name);
       const selected = mapQuery.get('unitId') ? mapQuery.get('unitId')===id
         : mapQuery.get('unit') ? normalizeUnit(mapQuery.get('unit'))===normalizeUnit(unit) : mapQuery.get('region')===region;
       marker.setAttribute('aria-pressed',String(selected));
-      marker.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 22 6-13 6 13M8 18h8M10 14h4M8.5 4.5a5 5 0 0 0 0 7m7-7a5 5 0 0 1 0 7M6 2a8.5 8.5 0 0 0 0 12m12-12a8.5 8.5 0 0 1 0 12"/><circle cx="12" cy="8" r="1"/></svg>';
+      marker.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${markerPath}</svg>`;
       const label = document.createElement('span');
       label.textContent = city.name;
       marker.append(label);
-      const caption = 'Call Center '+city.name+' · '+mapNumber.format(count)+' CSR · '+periodLabel;
-      if (selected) detail.textContent = caption;
+      const caption = mapChannel+' '+city.name+' · '+mapNumber.format(count)+' CSR · '+periodLabel;
+      if (selected) {
+        detail.textContent = caption;
+        selectSiteButton(city.site);
+      }
       marker.addEventListener('click',()=>{
-        for (const pin of towerPins) pin.setAttribute('aria-pressed',String(pin===marker));
+        for (const pin of sitePins) pin.setAttribute('aria-pressed',String(pin===marker));
+        selectSiteButton(city.site);
         detail.textContent = caption;
         sendMapScope('',region,unit,id,true);
       });
-      towerPins.push(marker);
+      sitePins.push(marker);
       clusterLines.set(marker,line);
-      towerAnchors.set(marker,anchor);
+      siteAnchors.set(marker,anchor);
       stage.append(marker);
     }
-    summary.textContent = units.length+' unit · '+periodLabel;
-    if (towerPins.length<units.length) note.textContent += ' '+(units.length-towerPins.length)+' unit belum memiliki titik kota.';
+    for (const [site,button] of siteButtons) {
+      const count = site==='Semua site' ? sitePins.length : sitePins.filter(pin=>pin.dataset.site===site).length;
+      button.textContent = site+' · '+mapNumber.format(count);
+      button.disabled = site!=='Semua site' && count===0;
+    }
+    nationalQuery.disabled = false;
+    nationalSearch.querySelector('[type=submit]').disabled = false;
+    summary.textContent = mappedUnits.length+' unit · '+periodLabel;
+    if (sitePins.length<units.length) note.textContent += ' '+(units.length-sitePins.length)+' unit belum memiliki titik kota.';
     drawMap();
   } catch {
-    summary.textContent = 'Data Call Center lokal belum bisa dimuat.';
+    summary.textContent = 'Data '+mapChannel+' lokal belum bisa dimuat.';
     detail.textContent = '';
   }
 }
 
-if (mapChannel==='Call Center') {
-  showCallCenterMap(mapQuery.get('month'));
+if (isSiteMap) {
+  showSiteMap(mapQuery.get('month'));
 } else {
   drawMap();
   const locationsRequest = fetch('/api/local-grapari-locations')
@@ -813,18 +903,18 @@ if (mapChannel==='Call Center') {
   });
   const rosterRequest = readMapRoster(mapQuery.get('month')).catch(()=>({units:[]}));
   Promise.all([directoryRequest, locationsRequest, rosterRequest]).then(([data, branchLocations, roster]) => {
-    directory = directoryWithWorkbook(data,roster.units);
+    directory = directoryWithWorkbook(Object.fromEntries(Object.entries(data).filter(([area])=>mapAreaIncluded(area))),roster.units);
     locations = branchLocations;
     nationalQuery.disabled = false;
     nationalSearch.querySelector('[type=submit]').disabled = false;
-    for (const pin of areaButtons) {
-      const area = pin.textContent;
-      pin.dataset.area = area;
-      pin.disabled = !directory[area];
-      if (!pin.disabled) pin.textContent = area + ' · ' + countUnits(directory[area]);
-    }
     const areas = Object.values(directory);
     const total = areas.reduce((sum, regions) => sum + countUnits(regions), 0);
+    for (const button of areaButtons) {
+      const area = button.dataset.area;
+      const count = area ? (directory[area] ? countUnits(directory[area]) : 0) : total;
+      button.disabled = area ? !directory[area] : !areas.length;
+      if (!button.disabled) button.textContent += ' · ' + mapNumber.format(count);
+    }
     const regional = areas.reduce((sum, regions) => sum + Object.keys(regions).length, 0);
     document.getElementById('map-summary').textContent = total + ' unit · ' + areas.length + ' area · ' + regional + ' regional';
     const area = mapQuery.get('area');

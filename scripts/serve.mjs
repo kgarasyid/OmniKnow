@@ -85,11 +85,17 @@ const server = createServer(async (request, response) => {
     return response.end('Bad request');
   }
   const path = url.pathname;
-  if (learningData && ['/api/local-learning','/api/local-hard-skill'].includes(path)) {
+  if (learningData && ['/api/local-learning','/api/local-hard-skill','/local-hard-skill-documentation.png'].includes(path)) {
     const {host, origin, 'sec-fetch-site':site} = request.headers;
     if (![`127.0.0.1:${port}`, `localhost:${port}`].includes(host) ||
         (site && site !== 'same-origin' && site !== 'none') || (origin && origin !== `http://${host}`)) {
       return jsonResponse(request, response, 403, {error:'Local access only'});
+    }
+    if (path === '/local-hard-skill-documentation.png') {
+      const image = await readFile(new URL('../private-data/call-center-training-slide.png', import.meta.url)).catch(() => null);
+      if (!image) return jsonResponse(request, response, 404, {error:'Documentation unavailable'});
+      response.writeHead(200, {'Content-Type':'image/png','Cross-Origin-Resource-Policy':'same-origin','Cache-Control':'no-store'});
+      return response.end(request.method === 'HEAD' ? undefined : image);
     }
     const data = await learningData;
     if (!data) return jsonResponse(request, response, 503, {error:'Local learning workbooks unavailable'});

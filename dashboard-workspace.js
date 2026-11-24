@@ -1,11 +1,26 @@
 // Dashboard presentation. Existing roster and survey calculations remain the source of truth.
 const DASH_VIEWS=['Summary','ASK Performance','Training Hardskill & Soft skill','Training Reguler','Test Evaluation','Raw Data Table All'];
 const DASH_CHANNELS = [
-  {value:'All CTPs', label:'CTP'},
-  {value:'GraPARI', label:'GraPARI'},
-  {value:'Contact Center', label:'Call Center'},
-  {value:'E-Care', label:'E-Care'},
+  {value:'All CTPs', label:'Nasional'},
+  {
+    value:'GraPARI', label:'GraPARI', mapView:'grapari',
+    icon:'M4 21h16M6 21V4h12v17M10 21v-4h4v4M9 8h1m4 0h1M9 12h1m4 0h1',
+  },
+  {
+    value:'Contact Center', label:'Call Center', mapView:'call-center',
+    icon:'M4 10V9a8 8 0 0 1 16 0v1M4 10h2v5H4a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1Zm16 0h-2v5h2a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1ZM8 9v2a4 4 0 0 0 8 0V9m4 6a2 2 0 0 1-2 2h-2M5 22a7 7 0 0 1 14 0',
+  },
+  {
+    value:'E-Care', label:'E-Care', mapView:'e-care',
+    icon:'M8 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm3 14.5h2',
+  },
 ];
+const DASHBOARD_AREAS = ['Area 1','Area 2','Area 3','Area 4','Call Center','E-Care'];
+const DASHBOARD_SITES = [
+  {name:'Site 1',city:'Bandung',region:'Jabar',aliases:['Jawa Barat','Contact Center 1']},
+  {name:'Site 2',city:'Semarang',region:'Jateng',aliases:['Jawa Tengah','Jateng-DIY','Contact Center 2']},
+];
+let dashboardReportAreas = null;
 const dashboardHasLocalMap = () => ['127.0.0.1', 'localhost', '[::1]'].includes(globalThis.location?.hostname);
 
 let dashboardTab=0,dashboardSub={2:'Hardskill',3:'ACS Booster',4:'Pre Test',5:'Agents'},dashboardGroup='Area',dashboardRawQuery='',dashboardRawPage=0;
@@ -15,6 +30,8 @@ const DASHBOARD_TRIAL_DEFAULT_MONTH = '2026-10';
 let dashboardTrialWindow = 'month';
 let dashboardTrialRangeStart = DASHBOARD_TRIAL_DEFAULT_START;
 let dashboardAskReportOpen = true;
+let dashboardNationalAskReportOpen = false;
+const dashboardAskPassDisclosures = new Map();
 const dashboardOpenKpis = new Set();
 const dashboardLearningOpen = new Set();
 let dashboardAskDrillState = null;
@@ -44,23 +61,87 @@ function dashboardChannelLabel() {
   return DASH_CHANNELS.find(channel=>channel.value===ctp)?.label ?? DASH_CHANNELS[0].label;
 }
 
+function dashboardSiteChannel() {
+  return ctp==='Contact Center' ? 'Call Center' : ctp==='E-Care' ? 'E-Care' : '';
+}
+
+function dashboardSiteUnits(channel) {
+  const normalize = name=>name.toLowerCase().replace(/[^a-z0-9]/g,'');
+  const workbook = dashboardWorkbookUnits();
+  const selected = normalize(dashboardLocalUnit()?.[4] || '');
+  const prefix = channel==='Call Center' ? 'CC' : 'E-Care';
+  return DASHBOARD_SITES.map(({name,city,region})=>{
+    const label = `${prefix} ${city}`;
+    const unit = normalize(label);
+    const match = workbook.find(([,parts])=>normalize(parts[4] || '')===unit);
+    const rosterUnit = !match && state.agents.find(agent=>agent.ctp===ctp && normalize(dashboardUnitName(agent))===unit);
+    const key = match?.[0] || JSON.stringify([
+      channel,'',rosterUnit?.region || region,'',rosterUnit ? dashboardUnitName(rosterUnit) : label,
+    ]);
+    return {name,label,key,selected:selected===unit};
+  });
+}
+
 function dashboardViewTitle() {
   return dashboardTab === 0 ? dashboardChannelLabel() : DASH_VIEWS[dashboardTab];
 }
 
+function dashboardChannelIcon(path) {
+  return path ? `<svg class="dw-channel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${path}"/></svg>` : '';
+}
+
 function dashboardTabs() {
-  return `<nav class="dw-tabs" aria-label="Dashboard categories">${DASH_CHANNELS.map(({value,label})=>
-    `<button type="button" data-dash-channel="${value}"${dashboardTab===0 && ctp===value ? ' aria-current="page"' : ''}>${label}</button>`
+  return `<nav class="dw-tabs" aria-label="Dashboard categories">${DASH_CHANNELS.map(({value,label,icon})=>
+    `<button type="button" data-dash-channel="${value}"${dashboardTab===0 && ctp===value ? ' aria-current="page"' : ''}>${dashboardChannelIcon(icon)}${label}</button>`
   ).join('')}</nav>`;
+}
+
+function dashboardMatchesReportArea(channel, location) {
+  const key = channel==='GraPARI' ? location : channel==='Contact Center' ? 'Call Center' : channel;
+  const siteChannel = dashboardSiteChannel();
+  if (siteChannel) return key===siteChannel;
+  return dashboardReportAreas===null || dashboardReportAreas.includes(key);
+}
+
+function dashboardReportAreaLabel() {
+  if (dashboardReportAreas===null) return '';
+  if (!dashboardReportAreas.length) return 'Tidak ada area dipilih';
+  return dashboardReportAreas.join(', ');
+}
+
+function dashboardAreaControl() {
+  const checked = value=>dashboardReportAreas===null || dashboardReportAreas.includes(value);
+  return `<div class="field dw-area-field"><span>Area</span>
+   <details class="dw-area-dropdown">
+    <summary id="dashboardArea" aria-label="Area" title="${el(dashboardReportAreaLabel() || 'Semua area')}">
+     <span>${dashboardReportAreas===null?'Semua area':dashboardReportAreas.length>1?`${dashboardReportAreas.length} area dipilih`:el(dashboardReportAreaLabel())}</span>
+    </summary>
+    <fieldset class="dw-area-options" aria-label="Pilih area atau channel">
+     <label><input id="dashboardAreaAll" type="checkbox" data-dashboard-area="all"${dashboardReportAreas===null?' checked':''}> Pilih semua</label>
+     ${DASHBOARD_AREAS.map((value,index)=>`<label><input id="dashboardAreaChoice${index}" type="checkbox" data-dashboard-area="${el(value)}"${checked(value)?' checked':''}> ${el(value)}</label>`).join('')}
+    </fieldset>
+   </details>
+  </div>`;
+}
+
+function setDashboardReportAreas(selected) {
+  const next = DASHBOARD_AREAS.filter(value=>selected.includes(value));
+  dashboardReportAreas = next.length===DASHBOARD_AREAS.length ? null : next;
+  ctpScope = 'All locations';
+  area = 'All Areas';
+  region = 'All Regions';
+  dashboardUnit = '';
+  dashboardRawPage = 0;
 }
 
 function selectDashboardChannel(channel) {
   if (ctp !== channel) {
     ctp = channel;
     area = 'All Areas';
-    const locations = dashboardWorkbookUnits();
+    const locations = dashboardSiteChannel() ? [] : dashboardWorkbookUnits();
     if (!locations.some(([,parts])=>parts[1]===ctpScope)) ctpScope = 'All locations';
-    const inArea = locations.filter(([,parts])=>ctpScope==='All locations' || parts[1]===ctpScope);
+    const inArea = locations.filter(([,parts])=>dashboardMatchesReportArea(parts[0],parts[1]) &&
+      (ctpScope==='All locations' || parts[1]===ctpScope));
     if (!inArea.some(([,parts])=>parts[2]===region)) region = 'All Regions';
     if (!inArea.some(([key,parts])=>key===dashboardUnit && (region==='All Regions' || parts[2]===region))) dashboardUnit = '';
   }
@@ -70,9 +151,24 @@ function selectDashboardChannel(channel) {
 }
 
 function dashboardLocationControls(trial=false) {
+  const select = (label,id,choices,selected,defaultValue,defaultLabel)=>`<label class="field">${label}<select id="${id}">
+    ${defaultLabel?`<option value="${defaultValue}">${defaultLabel}</option>`:''}${choices.map(([value,text])=>`<option value="${el(value)}"${selected===value?' selected':''}>${el(text)}</option>`).join('')}
+  </select></label>`;
+  const siteChannel = dashboardSiteChannel();
+  if (siteChannel) {
+    const sites = dashboardSiteUnits(siteChannel);
+    const selected = sites.find(site=>site.selected);
+    const unitOptions = (selected ? [selected] : sites).map(({key,label})=>[key,label]);
+    return `<div class="dw-filter-grid">
+      <label class="field">Area<select id="dashboardArea" disabled><option>${el(siteChannel)}</option></select></label>
+      ${select('Site','dashboardSite',sites.map(({name})=>[name,name]),selected?.name || '','','Semua site')}
+      ${select('Unit','dashboardUnit',unitOptions,selected?.key || '','',selected ? '' : 'Semua unit')}
+    </div>`;
+  }
   const roster = state.agents.filter(agent=>
     (ctp==='All CTPs' || agent.ctp===ctp) && (area==='All Areas' || agent.area===area));
-  const areaRows = roster.filter(agent=>ctpScope==='All locations' || agentLocation(agent)===ctpScope);
+  const areaRows = roster.filter(agent=>dashboardMatchesReportArea(agent.ctp,agentLocation(agent)) &&
+    (ctpScope==='All locations' || agentLocation(agent)===ctpScope));
   const regionRows = areaRows.filter(agent=>region==='All Regions' || agent.region===region);
   const sort = (a,b)=>a.localeCompare(b,'id',{numeric:true});
   const unique = values=>[...new Set(values.filter(Boolean))].sort(sort);
@@ -85,7 +181,8 @@ function dashboardLocationControls(trial=false) {
   const nameCounts = new Map();
   for (const {name} of units.values()) nameCounts.set(name,(nameCounts.get(name) || 0)+1);
   const workbook = dashboardWorkbookUnits();
-  const workbookArea = workbook.filter(([,parts])=>ctpScope==='All locations' || parts[1]===ctpScope);
+  const workbookArea = workbook.filter(([,parts])=>dashboardMatchesReportArea(parts[0],parts[1]) &&
+    (ctpScope==='All locations' || parts[1]===ctpScope));
   const workbookRegion = workbookArea.filter(([,parts])=>region==='All Regions' || parts[2]===region);
   const unitOptions = (workbook.length ? workbookRegion.map(([key,parts])=>[key,parts[4]]) : [...units].map(([key,{name,agent}])=>[
     key,
@@ -93,11 +190,8 @@ function dashboardLocationControls(trial=false) {
   ])).sort((a,b)=>sort(a[1],b[1]));
   const selectedUnit = dashboardLocalUnit();
   if (selectedUnit && !unitOptions.some(([key])=>key===dashboardUnit)) unitOptions.unshift([dashboardUnit,selectedUnit[4]]);
-  const select = (label,id,choices,selected,defaultValue,defaultLabel)=>`<label class="field">${label}<select id="${id}">
-    <option value="${defaultValue}">${defaultLabel}</option>${choices.map(([value,text])=>`<option value="${el(value)}"${selected===value?' selected':''}>${el(text)}</option>`).join('')}
-  </select></label>`;
   return `<div class="dw-filter-grid">
-    ${select('Area','dashboardArea',options(workbook.length?workbook.map(([,parts])=>parts[1]):roster.map(agentLocation)),ctpScope,'All locations','Semua area')}
+    ${dashboardAreaControl()}
     ${select('Region','dashboardRegion',options(workbook.length?[...workbookArea.map(([,parts])=>parts[2]),region==='All Regions'?'':region]:areaRows.map(agent=>agent.region)),region,'All Regions','Semua region')}
     ${select(trial?'Unit / Site':'Unit Name','dashboardUnit',unitOptions,dashboardUnit,'',trial?'Semua unit / site':'Semua unit')}
   </div>`;
@@ -125,7 +219,15 @@ function applyDashboardMapScope({mapArea='',mapRegion='',unit='',unitId=''}) {
 }
 
 function dashboardLocationLabel() {
+  const siteChannel = dashboardSiteChannel();
+  if (siteChannel) {
+    const unit = dashboardLocalUnit()?.[4];
+    const site = DASHBOARD_SITES.find(({city})=>unit?.toLowerCase().endsWith(' '+city.toLowerCase()));
+    if (site) return `${site.name} · ${siteChannel==='Call Center'?'CC':'E-Care'} ${site.city}`;
+    return unit || 'Nasional';
+  }
   return [
+    dashboardReportAreaLabel(),
     area==='All Areas' ? '' : area,
     ctpScope==='All locations' ? '' : ctpScope,
     region==='All Regions' ? '' : region,
@@ -135,9 +237,16 @@ function dashboardLocationLabel() {
 
 const dashboardTrialMonthFormat = new Intl.DateTimeFormat('id-ID',{month:'long',year:'numeric',timeZone:'UTC'});
 const dashboardTrialMonthName = new Intl.DateTimeFormat('id-ID',{month:'long',timeZone:'UTC'});
+const dashboardTrialShortMonth = new Intl.DateTimeFormat('id-ID',{month:'short',timeZone:'UTC'});
 const dashboardTrialJakartaMonth = new Intl.DateTimeFormat('en-CA',{year:'numeric',month:'2-digit',timeZone:'Asia/Jakarta'});
 const dashboardTrialMonthDate = month=>new Date(month+'-01T00:00:00Z');
 const dashboardTrialFormatMonth = month=>dashboardTrialMonthFormat.format(dashboardTrialMonthDate(month));
+
+function dashboardCompareMonths(current,previous) {
+  const month = key=>dashboardTrialShortMonth.format(dashboardTrialMonthDate(key));
+  const year = key=>key.slice(0,4);
+  return `${month(current)}${year(current)===year(previous)?'':` ${year(current)}`} vs ${month(previous)} ${year(previous)}`;
+}
 
 function dashboardTrialCurrentMonth(date=new Date()) {
   const parts = dashboardTrialJakartaMonth.formatToParts(date);
@@ -148,11 +257,48 @@ function setDashboardTrialPeriod(window, month=reportTo.slice(0,7), startMonth=d
   dashboardTrialWindow = window;
   if (window==='current') month = dashboardTrialCurrentMonth();
   if (window==='range') dashboardTrialRangeStart = startMonth<=month ? startMonth : month;
-  const start = window==='range' ? dashboardTrialRangeStart : window==='ytd' ? month.slice(0,4)+'-01' : month;
+  let start = window==='range' ? dashboardTrialRangeStart : window==='ytd' ? month.slice(0,4)+'-01' : month;
   const end = dashboardTrialMonthDate(month);
+  if (window==='quarter') {
+    const firstMonth = 3*Math.floor(end.getUTCMonth()/3);
+    end.setUTCMonth(firstMonth);
+    start = end.toISOString().slice(0,7);
+    end.setUTCMonth(firstMonth+2);
+  }
   end.setUTCMonth(end.getUTCMonth()+1,0);
   reportFrom = start+'-01';
   reportTo = end.toISOString().slice(0,10);
+}
+
+function dashboardTrialKnownMonths() {
+  const local = [...Object.keys(localAskReport || {}),...localLearningMonths];
+  const dated = [
+    ...state.agents.map(agent=>isoDay(agent.assessmentDate || agent.date).slice(0,7)),
+    ...state.activities.map(activity=>isoDay(activity.date).slice(0,7)),
+  ];
+  return {local,dated};
+}
+
+function dashboardTrialYtdMonth(year) {
+  const current = dashboardTrialCurrentMonth();
+  const ceiling = current.startsWith(year+'-') ? current : year+'-12';
+  const {local,dated} = dashboardTrialKnownMonths();
+  const eligible = month=>month.startsWith(year+'-') && month<=ceiling;
+  return local.filter(eligible).sort().at(-1) || dated.filter(eligible).sort().at(-1) || ceiling;
+}
+
+function setDashboardTrialSelection(value) {
+  if (!/^\d{4}-(?:0[1-9]|1[0-2]|q[1-4]|ytd)$/.test(value)) return;
+  const [year,choice] = value.split('-');
+  if (choice==='ytd') setDashboardTrialPeriod('ytd',dashboardTrialYtdMonth(year));
+  else if (choice.startsWith('q')) setDashboardTrialPeriod('quarter',`${year}-${String(Number(choice[1])*3).padStart(2,'0')}`);
+  else setDashboardTrialPeriod('month',value);
+}
+
+function refreshDashboardTrialYtd() {
+  if (dashboardTrialWindow==='ytd' && document.querySelector('#dashboardTrialSelection')) {
+    setDashboardTrialSelection(reportTo.slice(0,4)+'-ytd');
+  }
 }
 
 function resetDashboardTrialPeriod() {
@@ -165,30 +311,30 @@ function dashboardTrialPeriodLabel() {
   const end = reportTo.slice(0,7);
   const label = dashboardTrialFormatMonth(end);
   if (dashboardTrialWindow==='ytd') return 'YTD s.d. '+label;
+  if (dashboardTrialWindow==='quarter') return `Q${Math.ceil(Number(end.slice(5))/3)} ${end.slice(0,4)}`;
   if (dashboardTrialWindow!=='range' || start===end) return label;
   const first = start.slice(0,4)===end.slice(0,4) ? dashboardTrialMonthName.format(dashboardTrialMonthDate(start)) : dashboardTrialFormatMonth(start);
   return first+'–'+label;
 }
 
 function dashboardTrialPeriodControls() {
-  const selected = reportTo.slice(0,7);
-  const isRange = dashboardTrialWindow==='range';
-  const months = [...new Set([
-    DASHBOARD_TRIAL_DEFAULT_START,'2026-09',DASHBOARD_TRIAL_DEFAULT_MONTH,dashboardTrialCurrentMonth(),selected,dashboardTrialRangeStart,
-    ...Object.keys(localAskReport || {}),...localLearningMonths,
-    ...state.agents.map(agent=>isoDay(agent.assessmentDate || agent.date).slice(0,7)),
-    ...state.activities.map(activity=>isoDay(activity.date).slice(0,7)),
-  ].filter(Boolean))].sort().reverse();
-  const monthControl = (id,label,value)=>`<label class="field">${label}<select id="${id}">
-    ${months.map(month=>`<option value="${month}"${month===value?' selected':''}>${dashboardTrialFormatMonth(month)}</option>`).join('')}
-    </select></label>`;
-  const periods = [['current','Bulan berjalan'],['month','Pilih satu bulan'],['range','Rentang bulan'],['ytd','YTD']];
-  return `<div class="dw-filter-grid dw-trial-period${isRange?' is-range':''}">
-    <label class="field">Periode<select id="dashboardTrialWindow">${periods.map(([value,label])=>
-      `<option value="${value}"${value===dashboardTrialWindow?' selected':''}>${label}</option>`).join('')}</select></label>
-    ${isRange ? monthControl('dashboardTrialStartMonth','Dari bulan',dashboardTrialRangeStart) : ''}
-    ${dashboardTrialWindow==='current' ? '' : monthControl('dashboardTrialMonth',isRange?'Sampai bulan':'Bulan laporan',selected)}
-  </div>`;
+  const month = reportTo.slice(0,7);
+  const year = month.slice(0,4);
+  const {local,dated} = dashboardTrialKnownMonths();
+  const years = [...new Set([year,...local.concat(dated).filter(Boolean).map(value=>value.slice(0,4))])].sort().reverse();
+  const selected = dashboardTrialWindow==='ytd' ? year+'-ytd' :
+    dashboardTrialWindow==='quarter' ? `${year}-q${Math.ceil(Number(month.slice(5))/3)}` : month;
+  const option = (value,label)=>`<option value="${value}"${value===selected?' selected':''}>${label}</option>`;
+  const optionsForYear = year=>{
+    const months = Array.from({length:12},(_,i)=>{
+      const value = `${year}-${String(i+1).padStart(2,'0')}`;
+      return option(value,dashboardTrialMonthName.format(dashboardTrialMonthDate(value)));
+    });
+    return [...months,...[1,2,3,4].map(quarter=>option(`${year}-q${quarter}`,`Q${quarter}`)),option(year+'-ytd','YTD')].join('');
+  };
+  return `<div class="dw-filter-grid dw-trial-period"><label class="field">Bulan / Kuartal<select id="dashboardTrialSelection">
+    ${years.map(year=>`<optgroup label="${year}">${optionsForYear(year)}</optgroup>`).join('')}
+    </select></label></div>`;
 }
 
 let localLearningAvailable = true;
@@ -200,6 +346,7 @@ function localLearningQuery() {
   const agent = dashboardUnit && !localUnit && state.agents.find(row=>dashboardUnitKey(row)===dashboardUnit);
   const params = new URLSearchParams({from:reportFrom,to:reportTo});
   if (ctp!=='All CTPs') params.set('channel',dashboardChannelLabel());
+  appendDashboardReportAreaParams(params);
   if (ctpScope!=='All locations') params.set('area',ctpScope);
   if (region!=='All Regions') params.set('region',region);
   if (area!=='All Areas') for (const member of REGIONS[area] || []) params.append('geoRegion',member);
@@ -208,6 +355,15 @@ function localLearningQuery() {
   if (unit) params.set('unit',unit);
   if (unitId) params.set('unitId',unitId);
   return params.toString();
+}
+
+function appendDashboardReportAreaParams(params) {
+  const siteChannel = dashboardSiteChannel();
+  if (siteChannel) {
+    params.append('reportArea',siteChannel);
+  } else if (dashboardReportAreas!==null) {
+    for (const value of dashboardReportAreas.length ? dashboardReportAreas : ['']) params.append('reportArea',value);
+  }
 }
 
 function dashboardLearningReport() {
@@ -233,6 +389,7 @@ async function loadLocalLearningReport() {
     localLearningReports.set(query,{status:'error'});
   }
   if (!document.querySelector('.ctp-executive') || localLearningQuery()!==query) return;
+  refreshDashboardTrialYtd();
   const focus = document.activeElement?.id;
   const openDialog = document.querySelector('.canvas-dialog[open]')?.id;
   renderDashboardFilters(focus);
@@ -244,8 +401,11 @@ async function loadLocalLearningReport() {
 
 function renderDashboardFilters(focusId) {
   const scrollTop = document.scrollingElement?.scrollTop;
+  const areaOpen = document.querySelector('.dw-area-dropdown')?.open;
   render();
   if (scrollTop!=null && document.scrollingElement.scrollTop!==scrollTop) document.scrollingElement.scrollTop = scrollTop;
+  const dropdown = document.querySelector('.dw-area-dropdown');
+  if (areaOpen && dropdown && focusId!=='dashboardResetFilters') dropdown.open = true;
   if (focusId) document.getElementById(focusId)?.focus({preventScroll:true});
 }
 
@@ -263,20 +423,19 @@ function dashboardWorkspace() {
     'Compare matched assessments or explore the separate Try Out showcase.',
     'Inspect and export the source records behind the dashboard.',
   ];
-  const canMap = dashboardTab===0 && dashboardHasLocalMap();
+  const mapView = DASH_CHANNELS.find(channel=>channel.value===ctp)?.mapView;
+  const canMap = dashboardTab===0 && mapView && dashboardHasLocalMap();
   const mapParams = canMap ? new URLSearchParams({
+    view:mapView,
     month:reportTo.slice(0,7),
     area:ctpScope==='All locations'?'':ctpScope,
     region:region==='All Regions'?'':region,
     unit:dashboardLocalUnit()?.[4] || '',
     unitId:dashboardLocalUnit()?.[3] || '',
   }) : null;
-  const map = canMap
-    ? ctp==='GraPARI'
-      ? `<iframe class="dw-grapari-map" src="/local-grapari-map?${el(mapParams.toString())}" title="Peta persebaran GraPARI 3D"></iframe>`
-      : ctp==='Contact Center'
-        ? `<iframe class="dw-grapari-map" src="/local-grapari-map?view=call-center&amp;${el(mapParams.toString())}" title="Peta persebaran Call Center 3D"></iframe>`
-        : ''
+  if (mapParams) appendDashboardReportAreaParams(mapParams);
+  const map = mapParams
+    ? `<iframe class="dw-grapari-map" src="/local-grapari-map?${el(mapParams.toString())}" title="Peta persebaran ${el(dashboardChannelLabel())} 3D"></iframe>`
     : '';
   const subTabs = {
     2:['Hardskill','Soft skill'],
@@ -288,7 +447,7 @@ function dashboardWorkspace() {
   const location = dashboardLocationLabel();
   const national = ctp==='All CTPs' && location==='Nasional';
   const periodLabel = trial ? dashboardTrialPeriodLabel() : '';
-  return `<div class="dw-workspace${trial?' dw-wall':''}">
+  return `<div class="dw-workspace${trial?' dw-wall':''}" data-report-channel="${el(dashboardChannelLabel())}">
     ${trial?`<header class="wall-header"><div><div class="wall-heading"><h1>Kinerja CSR &amp; Training${national?' Nasional':''}</h1>
      <time class="wall-period" datetime="${reportTo.slice(0,7)}">${periodLabel}</time></div>
      <p>${ctp==='All CTPs'?'Semua CTP':dashboardChannelLabel()}${national?'':` · ${el(location)}`}</p></div>${actions}</header>`:''}
@@ -367,7 +526,7 @@ function bindDashboardAskDrilldown(report) {
   const score = new Intl.NumberFormat('id-ID',{maximumFractionDigits:1});
   const count = new Intl.NumberFormat('id-ID');
   const unitLabel = row=>[row.unit,row.area || row.region || row.channel].filter(Boolean).join(' · ') || '—';
-  const scoreLabel = row=>Number.isFinite(row.score) ? score.format(row.score) : '—';
+  const scoreLabel = value=>Number.isFinite(value) ? score.format(value) : '—';
   async function request(view,filters={}) {
     const query = new URLSearchParams(scope);
     query.set('view',view);
@@ -383,15 +542,27 @@ function bindDashboardAskDrilldown(report) {
     if (!rank || !report.open || rank.dataset.loaded) return;
     rank.dataset.loaded = 'true';
     rank.setAttribute('aria-busy','true');
-    const list = (title,rows)=>`<article><h4>${title}</h4><ol class="canvas-ask-ranking-list">${rows.map(row=>`<li>
-      <div><strong>${el(row.name)}</strong><small>${el(unitLabel(row))}</small></div><b>${scoreLabel(row)}</b></li>`).join('')}</ol></article>`;
+    const limit = rank.dataset.askRanking;
+    const rankingTable = (title,rows)=>`<article><h4>${title}</h4>
+      <table class="canvas-ask-rank-table" aria-label="${title}">
+       <thead><tr><th scope="col">No.</th><th scope="col">Nama CSR</th><th scope="col">Area</th><th scope="col">Unit</th>
+        <th scope="col"><abbr title="Attitude">A</abbr></th><th scope="col"><abbr title="Skill">S</abbr></th>
+        <th scope="col"><abbr title="Knowledge">K</abbr></th><th scope="col">ASK</th></tr></thead>
+       <tbody>${rows.map((row,index)=>`<tr><td>${index+1}</td><th scope="row">${el(row.name)}
+        <small class="canvas-ask-rank-location">${el([row.area || row.channel,row.unit].filter(Boolean).join(' · '))}</small></th>
+        <td>${el(row.area || row.channel || '—')}</td><td>${el(row.unit || '—')}</td>
+        <td>${scoreLabel(row.attitude)}</td><td>${scoreLabel(row.skill)}</td>
+        <td>${scoreLabel(row.knowledge)}</td><td><strong>${scoreLabel(row.score)}</strong></td></tr>`).join('')}
+       </tbody>
+      </table></article>`;
     try {
-      const result = await request('ranking');
+      const result = await request('ranking',{limit});
       if (!rank.isConnected) return;
       rank.innerHTML = !result ? '<p>Daftar nama ASK belum diaktifkan di server lokal.</p>'
-        : result.total ? `<div class="canvas-ask-rank-grid">${list('Top 5',result.top)}${list('Bottom 5',result.bottom)}</div>`
+        : result.total ? `<div class="canvas-ask-rank-grid">${rankingTable('Top '+limit,result.top)}${rankingTable('Bottom '+limit,result.bottom)}</div>`
         : '<p>Belum ada skor ASK untuk cakupan ini.</p>';
     } catch {
+      delete rank.dataset.loaded;
       if (rank.isConnected) rank.textContent = 'Peringkat ASK belum bisa dimuat.';
     } finally {
       rank.removeAttribute('aria-busy');
@@ -425,7 +596,7 @@ function bindDashboardAskDrilldown(report) {
       rows.innerHTML = !result ? '<p>Daftar nama ASK belum diaktifkan di server lokal.</p>'
         : !result.rows.length ? '<p>Tidak ada nama CSR yang cocok.</p>'
         : `<table><thead><tr><th scope="col">Nama CSR</th><th scope="col">Unit</th><th scope="col">ASK /100</th></tr></thead>
-          <tbody>${result.rows.map(row=>`<tr><th scope="row">${el(row.name)}</th><td>${el(unitLabel(row))}</td><td>${scoreLabel(row)}</td></tr>`).join('')}</tbody></table>`;
+          <tbody>${result.rows.map(row=>`<tr><th scope="row">${el(row.name)}</th><td>${el(unitLabel(row))}</td><td>${scoreLabel(row.score)}</td></tr>`).join('')}</tbody></table>`;
       if (result?.rows.length) {
         const end = result.offset + result.rows.length;
         status.textContent = `${count.format(result.offset+1)}–${count.format(end)} dari ${count.format(result.total)} CSR`;
@@ -481,12 +652,34 @@ function bindDashboard(){
   }));
   bindDashboardHardSkill();
   const askReport = document.querySelector('.canvas-ask-report');
+  const rememberAskReport = open=>{
+    if (ctp==='All CTPs') dashboardNationalAskReportOpen = open;
+    else dashboardAskReportOpen = open;
+  };
   askReport?.querySelector('summary')?.addEventListener('click',()=>{
-    dashboardAskReportOpen = !askReport.open;
+    rememberAskReport(!askReport.open);
   });
   askReport?.addEventListener('toggle',()=>{
-    if (askReport.isConnected) dashboardAskReportOpen = askReport.open;
+    if (askReport.isConnected) rememberAskReport(askReport.open);
   });
+  document.querySelectorAll('[data-dashboard-jump]').forEach(button=>button.addEventListener('click',()=>{
+    const destination = button.dataset.dashboardJump;
+    if (destination==='ask' && askReport) {
+      rememberAskReport(true);
+      askReport.open = true;
+      askReport.querySelector('summary')?.focus({preventScroll:true});
+      askReport.scrollIntoView({block:'start'});
+    } else if (destination==='training') {
+      const training = document.getElementById('canvas-training-summary-title');
+      training?.focus({preventScroll:true});
+      training?.scrollIntoView({block:'start'});
+    } else if (destination==='bad-ticket') {
+      openDashboardBadTickets();
+    }
+  }));
+  askReport?.querySelectorAll('[data-ask-pass-group]').forEach(disclosure=>disclosure.addEventListener('toggle',()=>{
+    if (disclosure.isConnected) dashboardAskPassDisclosures.set(disclosure.dataset.askPassGroup,disclosure.open);
+  }));
   bindDashboardAskDrilldown(askReport);
   if (document.querySelector('.ctp-executive')) {
     loadLocalAskReport();
@@ -500,21 +693,16 @@ function bindDashboard(){
     render();
     document.getElementById('dashboardTrialToggle')?.focus({preventScroll:true});
   });
-  for (const id of ['dashboardTrialWindow','dashboardTrialMonth','dashboardTrialStartMonth']) {
-    document.getElementById(id)?.addEventListener('change',()=>{
-      const mode = document.getElementById('dashboardTrialWindow').value;
-      const end = document.getElementById('dashboardTrialMonth')?.value || reportTo.slice(0,7);
-      const start = document.getElementById('dashboardTrialStartMonth')?.value || dashboardTrialRangeStart;
-      setDashboardTrialPeriod(mode,id==='dashboardTrialStartMonth' && start>end ? start : end,start);
-      renderDashboardFilters(id);
-    });
-  }
+  document.getElementById('dashboardTrialSelection')?.addEventListener('change',event=>{
+    setDashboardTrialSelection(event.target.value);
+    renderDashboardFilters('dashboardTrialSelection');
+  });
   document.querySelectorAll('[data-canvas-dialog]').forEach(button=>button.addEventListener('click',()=>{
     document.getElementById(button.dataset.canvasDialog)?.showModal();
   }));
   document.querySelector('[data-dashboard-ask-detail]')?.addEventListener('click',()=>{
     localAskWindow = dashboardTrialWindow==='ytd' ? 'ytd' : 'month';
-    localAskMonth = reportTo.slice(0,7);
+    localAskMonth = askReport?.dataset.askDetailMonth || reportTo.slice(0,7);
     const unit = dashboardLocalUnit();
     localAskChannel = unit?.[0] || (ctp==='All CTPs' ? '' : dashboardChannelLabel());
     localAskModel = '';
@@ -526,6 +714,7 @@ function bindDashboard(){
     area='All Areas';
     region='All Regions';
     ctpScope='All locations';
+    dashboardReportAreas=null;
     category='All Categories';
     trendWindow='MoM';
     q='';
@@ -538,9 +727,37 @@ function bindDashboard(){
     }
     renderDashboardFilters('dashboardResetFilters');
   });
+  const dropdown = document.querySelector('.dw-area-dropdown');
+  if (dropdown) {
+    const all = dropdown.querySelector('#dashboardAreaAll');
+    all.indeterminate = Boolean(dashboardReportAreas?.length);
+    dropdown.addEventListener('change',({target})=>{
+      const value = target.dataset.dashboardArea;
+      if (!value) return;
+      const selected = new Set(dashboardReportAreas ?? DASHBOARD_AREAS);
+      if (value==='all') setDashboardReportAreas(target.checked ? DASHBOARD_AREAS : []);
+      else {
+        if (target.checked) selected.add(value);
+        else selected.delete(value);
+        setDashboardReportAreas([...selected]);
+      }
+      renderDashboardFilters(target.id);
+    });
+    dropdown.addEventListener('keydown',event=>{
+      if (event.key==='Escape' && dropdown.open) {
+        dropdown.open = false;
+        dropdown.querySelector('summary').focus();
+        event.preventDefault();
+      }
+    });
+  }
   const locationFilters = {
-    dashboardArea(value){ctpScope=value;area='All Areas';region='All Regions';dashboardUnit=''},
     dashboardRegion(value){region=value;dashboardUnit=''},
+    dashboardSite(value){
+      const site = dashboardSiteUnits(dashboardSiteChannel()).find(item=>item.name===value);
+      if (site) locationFilters.dashboardUnit(site.key);
+      else applyDashboardMapScope({});
+    },
     dashboardUnit(value){
       dashboardUnit=value;
       const selection=dashboardLocalUnit();
@@ -597,13 +814,18 @@ let localAskRequested = false;
 function loadLocalAskReport() {
  if (localAskRequested || !['localhost','127.0.0.1'].includes(location.hostname)) return;
  localAskRequested = true;
+ const refresh = ()=>{
+  if (document.querySelector('.ctp-executive')) renderDashboardFilters(document.activeElement?.id);
+  else if (document.querySelector('.ak-dashboard')) render();
+ };
  fetch('/api/local-ask-summary').then(async response => {
   if (response.status === 404) return;
   localAskReport = response.ok ? await response.json() : {};
-  if (document.querySelector('.ak-dashboard,.ctp-executive')) render();
+  refreshDashboardTrialYtd();
+  refresh();
  }).catch(() => {
   localAskReport = {};
-  if (document.querySelector('.ak-dashboard,.ctp-executive')) render();
+  refresh();
  });
 }
 

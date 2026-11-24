@@ -1,3 +1,5 @@
+import { reportAreaFilter } from './report-area.mjs';
+
 const channels = new Set(['GraPARI', 'Call Center', 'E-Care']);
 const pageSize = 20;
 const collator = new Intl.Collator('id', {numeric:true, sensitivity:'base'});
@@ -54,6 +56,7 @@ export function localAskDrilldown(data, query) {
   if (monthNumber(endMonth) - monthNumber(startMonth) >= 12) return null;
 
   const area = normalize(query.get('area'));
+  const reportArea = reportAreaFilter(query);
   const region = normalize(query.get('region'));
   const unit = normalize(query.get('unit'));
   const unitId = query.get('unitId')?.trim();
@@ -63,7 +66,8 @@ export function localAskDrilldown(data, query) {
   const rows = latestPlacements(data.placements, months).flatMap(({
     placement:[, label, [rowChannel, rowArea, rowRegion, rowUnitId, rowUnit], name, scores],
   }) => {
-    if ((channel && channel !== rowChannel) || (area && area !== normalize(rowArea)) ||
+    if ((channel && channel !== rowChannel) || !reportArea.matches({channel:rowChannel,area:rowArea}) ||
+        (area && area !== normalize(rowArea)) ||
         (region && region !== normalize(rowRegion)) || (geoRegions.size && !geoRegions.has(normalize(rowRegion))) ||
         (unitId ? unitId !== String(rowUnitId ?? '').trim() : unit && unit !== normalize(rowUnit)) ||
         (view === 'quadrant' && label !== quadrant) || (nameQuery && !normalize(name).includes(nameQuery)) ||
@@ -71,13 +75,15 @@ export function localAskDrilldown(data, query) {
     const [attitude, skill, knowledge] = scores;
     // Preserve tied scores despite floating-point differences in the weighted sum.
     const score = Number(((attitude * 4 + skill * 3 + knowledge * 3) / 10).toFixed(12));
-    return [{name:String(name ?? '').trim() || '—', score, channel:rowChannel, area:rowArea, region:rowRegion, unit:rowUnit}];
+    const row = {name:String(name ?? '').trim() || '—', score, channel:rowChannel, area:rowArea, region:rowRegion, unit:rowUnit};
+    return [view === 'ranking' ? {...row, attitude, skill, knowledge} : row];
   });
   const byName = (a, b) => collator.compare(a.name, b.name) || collator.compare(a.channel, b.channel) ||
     collator.compare(a.area, b.area) || collator.compare(a.region, b.region) || collator.compare(a.unit, b.unit);
   if (view === 'ranking') {
-    const top = rows.toSorted((a, b) => b.score - a.score || byName(a, b)).slice(0, 5);
-    const bottom = rows.toSorted((a, b) => a.score - b.score || byName(a, b)).slice(0, 5);
+    const limit = query.get('limit') === '10' || !channel ? 10 : 5;
+    const top = rows.toSorted((a, b) => b.score - a.score || byName(a, b)).slice(0, limit);
+    const bottom = rows.toSorted((a, b) => a.score - b.score || byName(a, b)).slice(0, limit);
     return {total:rows.length, top, bottom};
   }
   return {total:rows.length, offset, rows:rows.sort(byName).slice(offset, offset + pageSize)};

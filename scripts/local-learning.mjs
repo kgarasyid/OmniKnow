@@ -1,3 +1,5 @@
+import { reportLocationFilter } from './report-area.mjs';
+
 const formatKey = value => String(value ?? '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
 const day = value => /^\d{4}-\d{2}-\d{2}$/.test(value ?? '') &&
   Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
@@ -15,8 +17,7 @@ function sessionCount(rows) {
   return new Set(rows.map(row => JSON.stringify(row.session))).size;
 }
 
-function trainingSummary(rows) {
-  const hard = rows.filter(row => formatKey(row.type) === 'hardskill');
+function trainingSummary(rows, hard = rows.filter(row => formatKey(row.type) === 'hardskill')) {
   const regular = rows.filter(row => row.program);
   const pairs = regular.filter(row => Number.isFinite(row.pre) && Number.isFinite(row.post));
   return {
@@ -79,27 +80,26 @@ export function localLearningReport(data, query) {
   const to = query.get('to');
   if (!day(from) || !day(to) || from > to) return null;
 
-  const channel = query.get('channel');
-  const area = formatKey(query.get('area'));
-  const regions = query.getAll('geoRegion').map(formatKey);
-  const selectedRegion = formatKey(query.get('region'));
-  const unit = formatKey(query.get('unit'));
-  const unitId = query.get('unitId');
-  const locationMatches = row =>
-    (!channel || channel === row.channel) &&
-    (!area || area === formatKey(row.area)) &&
-    (!regions.length || regions.includes(formatKey(row.region))) &&
-    (!selectedRegion || selectedRegion === formatKey(row.region)) &&
-    (!unit || (unitId && row.unitId ? unitId === row.unitId : unit === formatKey(row.unit)));
+  const locationMatches = reportLocationFilter(query);
   const scopedTraining = data.training.filter(locationMatches);
+  const scopedHardSkill = data.hardSkill?.filter(locationMatches);
   const scopedTryout = data.tryout.filter(locationMatches);
   const within = (start, end) => row => row.date >= start && row.date <= end;
-  const currentTraining = scopedTraining.filter(within(from, to));
-  const currentTryout = scopedTryout.filter(within(from, to));
+  const currentPeriod = within(from, to);
+  const currentTraining = scopedTraining.filter(currentPeriod);
+  const currentHardSkill = scopedHardSkill?.filter(currentPeriod);
+  const currentTryout = scopedTryout.filter(currentPeriod);
   const previous = previousMonth(from, to);
-  const training = trainingSummary(currentTraining);
+  const previousPeriod = previous && within(...previous);
+  const training = trainingSummary(currentTraining, currentHardSkill);
+  const priorTraining = data.hasTraining && previousPeriod
+    ? trainingSummary(scopedTraining.filter(previousPeriod), scopedHardSkill?.filter(previousPeriod)) : null;
+  if (priorTraining && data.hardSkill?.some(previousPeriod)) priorTraining.hard ??= 0;
   const tryout = tryoutSummary(currentTryout);
-  const months = [...new Set([...data.training, ...data.tryout].map(row => row.date.slice(0, 7)))].sort();
+  const months = [...new Set([
+    ...[...data.training, ...data.tryout].map(row => row.date.slice(0, 7)),
+    ...(data.badTickets || []).map(row => row.month),
+  ])].sort();
   const cohorts = [
     ['GraPARI · MOMO', row => row.channel === 'GraPARI' && row.model === 'MOMO'],
     ['GraPARI · TOMO', row => row.channel === 'GraPARI' && row.model === 'TOMO'],
@@ -110,9 +110,10 @@ export function localLearningReport(data, query) {
   ];
   const groups = cohorts.flatMap(([label, matches]) => {
     const trainingRows = currentTraining.filter(matches);
+    const hardSkillRows = currentHardSkill?.filter(matches);
     const tryoutRows = currentTryout.filter(matches);
-    return trainingRows.length || tryoutRows.length
-      ? [{label, training: trainingSummary(trainingRows), tryout: tryoutSummary(tryoutRows)}]
+    return trainingRows.length || hardSkillRows?.length || tryoutRows.length
+      ? [{label, training: trainingSummary(trainingRows, hardSkillRows), tryout: tryoutSummary(tryoutRows)}]
       : [];
   });
   // Compare the same set of Tryout weeks, levels and makeup sessions.
@@ -124,7 +125,7 @@ export function localLearningReport(data, query) {
   return {
     months, groups,
     training: data.hasTraining ? training : null,
-    priorTraining: data.hasTraining && previous ? trainingSummary(scopedTraining.filter(within(...previous))) : null,
+    priorTraining,
     tryout: data.hasTryout ? tryout : null,
     priorTryout,
   };
