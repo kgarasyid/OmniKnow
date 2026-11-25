@@ -428,7 +428,7 @@ function dashboardAskPriorityPanel(groups, totals, parameters, {period,scope,mul
  </article>`;
 }
 
-function dashboardAskOverviewDelta(value,prior,unit='poin',showPoints=false) {
+function dashboardAskOverviewDelta(value,prior,unit='pts',showPoints=false) {
  const change = dashboardMoMChange(value,prior);
  if (!change) return '';
  const points = new Intl.NumberFormat('id-ID',{maximumFractionDigits:1}).format(change.amount);
@@ -442,8 +442,8 @@ function dashboardAskQuadrantChart(rows,series,number) {
  const step = [1,2,5,10].find(unit=>unit*magnitude>=roughStep)*magnitude;
  const intervals = Math.ceil(peak/step);
  const scale = step*intervals;
- return `<figure class="canvas-quadrant-chart" aria-label="Jumlah CSR per kuadran dan segmen">
-  <figcaption><strong>Jumlah CSR</strong><ul class="canvas-quadrant-legend" aria-label="Segmen CTP">
+ return `<figure class="canvas-quadrant-chart" aria-label="Jumlah CSR per kuadran dan channel">
+  <figcaption><strong>Jumlah CSR</strong><ul class="canvas-quadrant-legend" aria-label="Channel CTP">
    ${series.map(({label,color})=>`<li><i class="canvas-quadrant-swatch" data-series="${color}" aria-hidden="true"></i>${el(label)}</li>`).join('')}
   </ul></figcaption>
   <div class="canvas-quadrant-plot">
@@ -465,7 +465,7 @@ function dashboardAskQuadrantChart(rows,series,number) {
         <strong class="canvas-quadrant-column-count">${count}</strong>${segments}
        </span>
       </span><strong class="canvas-quadrant-column-count-mobile">${count}</strong>`;
-     const segmentValues = series.length>1 ? `<dl class="canvas-quadrant-segment-values" aria-label="Jumlah per segmen ${el(code)}">
+     const segmentValues = series.length>1 ? `<dl class="canvas-quadrant-segment-values" aria-label="Jumlah per channel ${el(code)}">
       ${parts.map(({label,color,value})=>`<div data-series="${color}" title="${el(label)}"${value?'':' data-zero'}>
        <dt class="ask-quadrant-sr">${el(label)}</dt><dd><i class="canvas-quadrant-swatch" aria-hidden="true"></i>${number.format(value)}</dd>
       </div>`).join('')}
@@ -683,7 +683,7 @@ function dashboardAskSegmentPass(groups,{dimensions,period,multiMonth,locations,
       ${dashboardAskNamesAttributes(dimension,level,`${label} · ${status} ${dimension} · ${location}`,filters)}>${el(location)}</button>
       <span class="canvas-pass-location-bar" aria-hidden="true"><i style="width:${100*count/maximum}%"></i></span>
       <strong>${number.format(count)} dari ${number.format(total)} (${number.format(100*count/total)}%)</strong>
-     </li>`).join('')}</ul>`:'<p>Rincian lokasi belum tersedia untuk segmen ini.</p>'}
+     </li>`).join('')}</ul>`:'<p>Rincian lokasi belum tersedia untuk channel ini.</p>'}
     </section>`;
    })).join('');
   return {card,details,metrics};
@@ -705,8 +705,8 @@ function dashboardAskSegmentPass(groups,{dimensions,period,multiMonth,locations,
      </div>
     </div>
     <div class="canvas-pass-compare-table-wrap">
-     <table class="canvas-pass-compare-table" aria-label="High dan Low ${el(dimension)} per segmen">
-      <thead><tr><th scope="col">Segmen</th><th scope="col">High</th><th scope="col">Low</th><th scope="col">% High</th></tr></thead>
+     <table class="canvas-pass-compare-table" aria-label="High dan Low ${el(dimension)} per channel">
+      <thead><tr><th scope="col">Channel</th><th scope="col">High</th><th scope="col">Low</th><th scope="col">% High</th></tr></thead>
       <tbody>${charts.map(chart=>chart.metrics[index].row).join('')}</tbody>
      </table>
     </div>
@@ -796,7 +796,7 @@ function dashboardAskReport({scope,channel,period,priorPeriod,priorShort,compari
  const number = value=>value==null?'—':format.format(value);
  const score = value=>value==null?'—':scoreFormat.format(value);
  const asScore = value=>value==null?'—':number(value)+'/100';
- const indicator = (value,prior)=>multiMonth?'':dashboardAskOverviewDelta(value,prior,'poin',true);
+ const indicator = (value,prior)=>multiMonth?'':dashboardAskOverviewDelta(value,prior,'pts',true);
  const scoreColor = (value,prior,fallback='')=>{
   const movement = multiMonth ? null : dashboardMoMChange(value,prior);
   return movement ? `dashboard-mom-value ${movement.tone}` : fallback;
@@ -1331,7 +1331,7 @@ function ctpExecutiveDashboard(agents, trial=false) {
   const [gainSymbol,gainTone,gainDirection] = pairedGain>0 ? ['▲',' is-up','Naik'] : pairedGain<0 ? ['▼',' is-down','Turun'] : ['→','','Tetap'];
   const pairedKpi = pairedGain==null ? headline(null) : `<span class="canvas-kpi-score-flow" aria-label="Pre-test ${score.format(pairedPre)}, post-test ${score.format(pairedPost)}">
    ${headline(pairedPre)}<span aria-hidden="true">→</span>${headline(pairedPost,'/100')}</span>
-   <span class="canvas-kpi-mom"><strong class="canvas-kpi-test-gain${gainTone}" aria-label="${gainDirection} ${fmt(Math.abs(pairedGain),'poin')}">${gainSymbol} ${fmt(Math.abs(pairedGain),'poin')}</strong><span>Selisih pre–post</span></span>`;
+   <span class="canvas-kpi-mom"><strong class="canvas-kpi-test-gain${gainTone}" aria-label="${gainDirection} ${fmt(Math.abs(pairedGain),'pts')}">${gainSymbol} ${fmt(Math.abs(pairedGain),'pts')}</strong><span>Selisih pre–post</span></span>`;
   const icon = path=>`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="${path}"/></svg>`;
   const chevron = `<svg class="canvas-kpi-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor"
@@ -1390,7 +1390,7 @@ function ctpExecutiveDashboard(agents, trial=false) {
      <div><dt>Total CSR${multiMonth && csrSnapshotLabel?' · '+el(csrSnapshotLabel):''}</dt><dd>${total==null?'—':number.format(total)}</dd>
       ${mom(total,prior,'CSR')}</div>
      <div><dt>Rata-rata ASK</dt><dd class="${momColor(averageAsk,priorAsk).trim()}">${averageAsk==null?'—':`${score.format(averageAsk)} <small>/100</small>`}</dd>
-      ${mom(averageAsk,priorAsk,'poin')}</div>
+      ${mom(averageAsk,priorAsk,'pts')}</div>
      <div><dt>${multiMonth?'Penilaian CSR':'CSR dinilai'}</dt><dd>${number.format(covered)}</dd></div>
     </dl>
     ${dashboardAskOverviewDistribution(talentPool,previousAsk?.talentPool,{multiMonth,comparisonPeriod,priorShort,distributionPeriod,panelClass:'canvas-map-score-distribution'})}
@@ -1484,7 +1484,7 @@ function ctpExecutiveDashboard(agents, trial=false) {
    </section>
    <div class="canvas-report-tabs">
    <div class="canvas-report-tablist" role="tablist" aria-label="Laporan Training Dashboard">
-    ${[['ask','Performance ASK'],['training','Training &amp; Evaluasi']].map(([key,label])=>`
+    ${[['ask','Detail ASK'],['training','Detail Training']].map(([key,label])=>`
      <button type="button" id="canvas-report-tab-${key}" role="tab" data-dashboard-report-tab="${key}"
       aria-controls="canvas-report-panel-${key}" aria-selected="${dashboardReportTab===key}" tabindex="${dashboardReportTab===key?0:-1}">${label}</button>`).join('')}
    </div>
@@ -1500,7 +1500,7 @@ function ctpExecutiveDashboard(agents, trial=false) {
     </div>
     <div class="canvas-test-comparison">
      <header><div><h4>Tes reguler</h4>${pairedCountNote?`<p>${pairedCountNote}</p>`:''}</div>
-      ${pairedGain==null?'':`<b class="canvas-test-gain${pairedGain<0?' is-down':pairedGain>0?' is-up':''}" aria-label="${pairedGain<0?'Turun':pairedGain>0?'Naik':'Tetap'} ${fmt(Math.abs(pairedGain),'poin')}">${pairedGain<0?'▼':pairedGain>0?'▲':'→'} ${fmt(Math.abs(pairedGain),'poin')}</b>`}
+      ${pairedGain==null?'':`<b class="canvas-test-gain${pairedGain<0?' is-down':pairedGain>0?' is-up':''}" aria-label="${pairedGain<0?'Turun':pairedGain>0?'Naik':'Tetap'} ${fmt(Math.abs(pairedGain),'pts')}">${pairedGain<0?'▼':pairedGain>0?'▲':'→'} ${fmt(Math.abs(pairedGain),'pts')}</b>`}
      </header>
      ${pairedGain==null?'<p>Data belum tersedia</p>':`<div class="canvas-test-score-list">${[
        ['Pre-test',pairedPre],['Post-test',pairedPost],
