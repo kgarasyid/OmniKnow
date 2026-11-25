@@ -2562,6 +2562,7 @@ button.canvas-quadrant-select::after {
   grid-template-columns:minmax(0,1.03fr) minmax(0,1.72fr) minmax(0,1.09fr);
   grid-template-areas:"dimensions focus distribution";
   gap:var(--ask-gap);
+  align-items:start;
 }
 .canvas-ask-components {
   grid-area:dimensions;
@@ -2608,7 +2609,10 @@ button.canvas-quadrant-select::after {
 .canvas-ask-analysis .canvas-ask-component[data-dimension="attitude"] {background:#edf9f4;border-color:#c3e3d6}
 .canvas-ask-analysis .canvas-ask-component[data-dimension="skill"] {background:#f2f0fc;border-color:#d8d0ef}
 .canvas-ask-analysis .canvas-ask-component[data-dimension="knowledge"] {background:#fff1f5;border-color:#efc8d3}
-.canvas-ask-overview.canvas-ask-analysis .canvas-focus {border-color:var(--canvas-line)}
+.canvas-ask-overview.canvas-ask-analysis .canvas-focus {
+  align-self:start;
+  border-color:var(--canvas-line);
+}
 .canvas-ask-overview.canvas-ask-analysis .canvas-distribution {border-color:var(--canvas-line);background:#f8fbfe}
 .canvas-ask-analysis :is(.canvas-focus h3,.canvas-distribution h4) {font-weight:800}
 .canvas-ask-overview .canvas-ask-score-bands {
