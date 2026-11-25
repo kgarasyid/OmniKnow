@@ -46,7 +46,8 @@ const nationalTickets = run(`hardSkillNationalAnalytics({badTickets:DASH_CHANNEL
 }))},'Oktober 2026',{current:'2026-10',previous:'2026-09'})`);
 assert.match(nationalTickets,/Performance Bad Ticket/);
 assert.match(nationalTickets,/Bad Ticket Fixed[\s\S]*Jumlah tiket[\s\S]*<strong>3<\/strong>[\s\S]*aria-label="Naik 1 tiket">▲ 1/);
-assert.match(nationalTickets,/Bad Ticket Mobile[\s\S]*TNPS GraPARI per Area/);
+assert.match(nationalTickets,/Bad Ticket Mobile/);
+assert.doesNotMatch(nationalTickets,/TNPS GraPARI per Area/);
 assert.doesNotMatch(nationalTickets,/Top 5 Kategori|Top 5 Agen|Ringkasan Bad Ticket per CTP/);
 for (const channel of ['GraPARI','Contact Center','E-Care']) {
   assert.ok(nationalTickets.includes(`data-hard-skill-channel="${channel}"`));

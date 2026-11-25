@@ -133,7 +133,7 @@ assert.match(monthTrial,/aria-label="High Attitude 50%, 25 CSR"/);
 assert.match(monthTrial,/class="canvas-ask-summary-low"[^>]*data-ask-names-label="Low (?:Attitude|Skill|Knowledge)"[^>]*>Low <strong>30%<\/strong><span>15 CSR/);
 assert.match(monthTrial,/data-ask-names-label="High Attitude" aria-haspopup="dialog"/);
 assert.match(monthTrial,/<select name="sort"><option value="name-asc">Nama A–Z<\/option>[\s\S]*?Skor terendah<\/option>/);
-assert.match(monthTrial,/class="canvas-ask-overview-cards"[\s\S]*?CSR per CTP<\/h3>[\s\S]*?data-cohort-family="grapari"[\s\S]*?data-cohort-family="contact"[\s\S]*?id="canvas-ask-comparison"[\s\S]*?High dan Low ASK Nasional<\/h3>[\s\S]*?Distribusi skor ASK<\/h4>[\s\S]*?High dan Low ASK per Segmen<\/h3>[\s\S]*?Rincian High dan Low berdasarkan lokasi/);
+assert.match(monthTrial,/class="canvas-ask-overview-cards"[\s\S]*?CSR per CTP<\/h3>[\s\S]*?data-cohort-family="grapari"[\s\S]*?data-cohort-family="contact"[\s\S]*?id="canvas-ask-comparison"[\s\S]*?High dan Low ASK Nasional<\/h3>[\s\S]*?Distribusi skor ASK<\/h4>[\s\S]*?High &amp; Low by Channel<\/h3>[\s\S]*?Rincian High dan Low berdasarkan lokasi/);
 assert.equal((monthTrial.match(/<h3>High dan Low ASK Nasional<\/h3>/g) || []).length,1);
 const attitudeBars = segmentPass(monthTrial).split('id="ask-pass-dimension-0"')[1].split('</section>')[0];
 const segmentAttitude = [...attitudeBars.matchAll(/<th scope="row">([^<]+)<\/th>\s*<td><button[^>]*><strong>([^<]+)<\/strong><\/button><\/td><td><button[^>]*><strong>([^<]+)<\/strong><\/button><\/td>\s*<td><strong>([^<]+)<\/strong>/g)]
@@ -187,6 +187,7 @@ const callDonuts = run(`dashboardAskSegmentPass({'Call In':demoAskGroup(20,[8,12
  dimensions:['Attitude','Skill','Knowledge'],period:'Oktober 2026',multiMonth:false,locations:new Map()
 })`);
 assert.match(callDonuts,/data-pass-view="detail"/);
+assert.match(callDonuts,/<h3 id="canvas-ask-segment-pass-title">High &amp; Low by Channel<\/h3>/);
 assert.equal((callDonuts.match(/class="canvas-pass-donut-ring"/g) || []).length,3);
 assert.match(callDonuts,/<strong>20<\/strong><small>CSR dinilai<\/small>/);
 assert.match(callDonuts,/Data bulan lalu belum tersedia/);
