@@ -115,13 +115,25 @@ export function localAskDrilldown(data, query) {
       previousRows = rowsForMonths(monthsInScope(data.placements, month, month));
       comparison = {month, available:previousRows.length > 0};
     }
-    const ranking = (direction, current = rows, previous = previousRows) => {
+    const ranking = (direction, current = rows, previous = previousRows, take = limit) => {
       const order = (a, b) => direction * (a.score - b.score) || byName(a, b) || collator.compare(a.id,b.id);
       const previousRanks = new Map(previous.toSorted(order).map(({id},index)=>[id,index+1]));
-      return current.toSorted(order).slice(0, limit).map(({id,...row}) => comparison
+      return current.toSorted(order).slice(0, take).map(({id,...row}) => comparison
         ? {...row, previousRank:previousRanks.get(id) ?? null} : row);
     };
-    const result = {total:rows.length, top:ranking(-1), ...(comparison ? {comparison} : {})};
+    const topByRegion = query.get('topBy') === 'region';
+    const topLimit = query.get('topLimit') === '5' ? 5 : limit;
+    const result = {total:rows.length, ...(topByRegion ? {} : {top:ranking(-1)}), ...(comparison ? {comparison} : {})};
+    if (topByRegion) {
+      const regions = [...new Set(rows.map(row=>row.region || 'Tanpa region'))].toSorted(collator.compare);
+      result.topByRegion = regions.map(region=>{
+        const matches = row => (row.region || 'Tanpa region') === region;
+        const current = rows.filter(matches);
+        const previous = previousRows.filter(matches);
+        return {region,total:current.length,rows:ranking(-1,current,previous,topLimit),
+          ...(comparison ? {comparison:{...comparison,available:previous.length>0}} : {})};
+      });
+    }
     if (query.get('bottomBy') !== 'area') return {...result,bottom:ranking(1)};
     const bottomByArea = [1,2,3,4].flatMap(number=>{
       const label = 'Area '+number;

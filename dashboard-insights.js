@@ -1340,6 +1340,8 @@ function ctpExecutiveDashboard(agents, trial=false) {
   const detailScope = range&&latestDistribution ? [...scopeParts,monthLabel(latestDistribution.key)].join(' · ') : askScopeLabel;
   const rankingLimit = ctp==='All CTPs' ? 10 : 5;
   const rankBottomByArea = ctp==='All CTPs' || ctp==='GraPARI';
+  const rankTopByRegion = ctp==='All CTPs';
+  const rankingTopLimit = rankTopByRegion ? 5 : rankingLimit;
   const hasMap = DASH_CHANNELS.some(channel=>channel.value===ctp && channel.mapView) && dashboardHasLocalMap();
   const selectedMapUnit = hasMap ? dashboardLocalUnit() : null;
   const mapDistribution = selectedMapUnit ? `<section class="canvas-map-distribution canvas-ask-overview" aria-labelledby="dashboard-map-distribution-title">
@@ -1422,9 +1424,9 @@ function ctpExecutiveDashboard(agents, trial=false) {
     scope:detailScope,comparisonPeriod,priorPeriod:priorLabel,priorShort,ytd,multiMonth,dimensions,bySegment:latest?.quadrantSegments,
    }),
    ranking:`<section class="canvas-panel canvas-ask-rankings" aria-labelledby="canvas-ask-ranking-title">
-    <div class="canvas-ask-section-heading"><h3 id="canvas-ask-ranking-title" tabindex="-1">Top ${rankingLimit}${rankBottomByArea?' ASK':''} &amp; Bottom ${rankingLimit} ${rankBottomByArea?'per Area':'ASK'}</h3>
+    <div class="canvas-ask-section-heading"><h3 id="canvas-ask-ranking-title" tabindex="-1">Top ${rankingTopLimit}${rankTopByRegion?' per Region':rankBottomByArea?' ASK':''} &amp; Bottom ${rankingLimit} ${rankBottomByArea?'per Area':'ASK'}</h3>
      <p>${el(detailScope)} · ${ytd?'Skor valid terakhir tiap CSR':'Skor ASK berbobot /100'}</p></div>
-    <div class="canvas-ask-rank-result"${covered?` data-ask-ranking="${rankingLimit}"`:''}${rankBottomByArea?' data-ask-ranking-bottom="area"':''}${rankingLimit===10&&!multiMonth?` data-ask-ranking-prior="${el(priorLabel)}" data-ask-ranking-prior-short="${el(priorShort)}"`:''} aria-live="polite"><p>${covered?'Memuat peringkat ASK…':'Belum ada skor ASK untuk cakupan ini.'}</p></div>
+    <div class="canvas-ask-rank-result"${covered?` data-ask-ranking="${rankingLimit}"`:''}${rankTopByRegion?` data-ask-ranking-top="region" data-ask-ranking-top-limit="${rankingTopLimit}"`:''}${rankBottomByArea?' data-ask-ranking-bottom="area"':''}${rankingLimit===10&&!multiMonth?` data-ask-ranking-prior="${el(priorLabel)}" data-ask-ranking-prior-short="${el(priorShort)}"`:''} aria-live="polite"><p>${covered?'Memuat peringkat ASK…':'Belum ada skor ASK untuk cakupan ini.'}</p></div>
    </section>`,
   });
   const trainingTotals = [['Hard Skill',hardTotal],['Training Reguler',regularTotal]];

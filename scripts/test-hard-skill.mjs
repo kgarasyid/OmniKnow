@@ -303,6 +303,18 @@ assert.equal(areaRanks.bottomByArea[1].comparison.available,false);
 assert.equal(areaRanks.bottomByArea[1].rows[0].previousRank,null);
 assert.ok(!Object.hasOwn(areaRanks,'bottom'));
 assert.deepEqual(localAskDrilldown(areaRoster,params(areaFilters,['Area 2'])).bottomByArea.map(group=>group.area),['Area 2']);
+const regionRoster = {placements:{'2026-10':{
+ r1a:['Walk In Mitra','HAHAKO (HA)',['GraPARI','Area 1','Region A','U1','Unit Satu'],'CSR Region A Tinggi',[100,90,90]],
+ r1b:['Walk In Mitra','HAHAKO (HA)',['GraPARI','Area 1','Region A','U2','Unit Dua'],'CSR Region A Rendah',[80,80,80]],
+ r2a:['Call In','HAHAKO (HA)',['Call Center','','Region B','CC','Unit Tiga'],'CSR Region B Tinggi',[90,100,100]],
+ r2b:['Call In','HAHAKO (HA)',['Call Center','','Region B','CC','Unit Empat'],'CSR Region B Rendah',[70,70,70]],
+}}};
+const regionRanks = localAskDrilldown(regionRoster,params({from:'2026-10-01',view:'ranking',topBy:'region',topLimit:'5'}));
+assert.deepEqual(regionRanks.topByRegion.map(group=>[group.region,group.rows[0].name]),[
+ ['Region A','CSR Region A Tinggi'],['Region B','CSR Region B Tinggi'],
+]);
+assert.ok(!Object.hasOwn(regionRanks,'top'));
+assert.equal(regionRanks.topByRegion[0].rows.length,2);
 const dimensionQuery = params({
  view:'dimension',dimension:'attitude',level:'high',segment:'Walk In Mitra',sort:'score-desc',
  locationArea:'Area 1',locationRegions:JSON.stringify(['Region Fiktif']),
