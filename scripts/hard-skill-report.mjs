@@ -72,7 +72,13 @@ function trainingBreakdowns(rows) {
     .map(entries => ({...location(entries[0]), ...participation(entries)}))
     .sort((a,b) => collator.compare(a.label,b.label));
   const byMaterial = members => [...groupBy(members, row => row.material || 'Materi belum tercatat')]
-    .map(([label,entries]) => ({label,...participation(entries),dates:dates(entries)}))
+    .map(([label,entries]) => ({
+      label,...participation(entries),dates:dates(entries),
+      channels:['GraPARI','Call Center','E-Care'].flatMap(ch => {
+        const subset = entries.filter(row => row.channel === ch);
+        return subset.length ? [{channel:ch,...participation(subset)}] : [];
+      }),
+    }))
     .sort((a,b) => b.attendance-a.attendance || collator.compare(a.label,b.label));
   const offline = rows.filter(row => row.channel === 'GraPARI' && row.method === 'Offline');
   const online = rows.filter(row => row.method === 'Online');
@@ -182,7 +188,7 @@ function badTicketReport(data, query, months, reportArea) {
     };
   };
   const sitePerformance = (all, scoped, agents) => {
-    const sites = [...new Set(scoped.map(siteLabel))]
+    const sites = [...new Set(scoped.map(row => row.site).filter(Boolean))]
       .sort((a,b) => (contactSiteLabels.includes(b)-contactSiteLabels.includes(a)) || collator.compare(a,b));
     return ticketServices.map(name => {
       const local = all.filter(row => row.service === name);
@@ -191,10 +197,14 @@ function badTicketReport(data, query, months, reportArea) {
       const summary = serviceSummary(members,coverage);
       if (!agents) return {name,...summary};
       const current = members.filter(inPeriod);
-      const identifiable = new Set(agents.filter(row=>row.service===name).map(row=>row.agent)).size;
+      const serviceAgents = agents.filter(row=>row.service===name);
+      const identifiable = new Set(serviceAgents.map(row=>row.agent)).size;
       return {
         name,...summary,
         agentCount:identifiable || (summary.count===0 ? 0 : null),
+        agents:topAgents(serviceAgents,Math.max(1,serviceAgents.length),entries=>({
+          site:entries.find(r=>r.site)?.site || '',
+        })),
         symptoms:breakdown(current.filter(row=>row.symptom),row=>row.symptom).slice(0,5),
         source:'Workbook Bad Ticket '+name,
         sites:sites.map(label => {
@@ -254,11 +264,15 @@ function badTicketReport(data, query, months, reportArea) {
       priorFromPpt:previous!==null && !localMonths.has(prior),
       localMonths:months.filter(month => localMonths.has(month)),
       pptMonths:months.filter(month => !localMonths.has(month) && referenceRows.some(row => row.month === month)),
-      areas:tables(current,null,coverage,row=>row.area || 'Area lain'), regions:regionRows,
+      areas:tables(current,previous,coverage,row=>row.area || 'Area lain'), regions:regionRows,
       unitsByArea:grapariAreas.filter(area => selectedAreas.has(area))
         .map(area => ({area,rows:rankUnits(localRows.filter(row => row.area === area))})),
       unitCategories:rankUnits(localRows),
       suspects:topAgents(serviceAgents,10,entries => ({area:entries[0].area})),
+      agents:topAgents(serviceAgents,Math.max(1,serviceAgents.length),entries => ({
+        area:entries[0].area,
+        region:entries[0].region,
+      })),
       suspectCount:new Set(serviceAgents.map(row => row.agent)).size,
       symptoms:breakdown(localRows.filter(row => row.symptom),row => row.symptom).slice(0,10),
       reference:showReference ? slide : undefined,
@@ -288,7 +302,7 @@ function badTicketReport(data, query, months, reportArea) {
     const contactServices = name === 'GraPARI' ? [] : sitePerformance(all,scoped,deepDive ? agents : null);
     const localServices = contactServices.filter(service => service.count != null);
     const siteDetails = () => {
-      const tierSites = [...new Set(current.map(siteLabel))].sort(collator.compare);
+      const tierSites = [...new Set(current.map(row => row.site).filter(Boolean))].sort(collator.compare);
       const siteTotals = tierSites.map(site=>
         [...groupBy(agents.filter(row=>siteLabel(row)===site),row=>row.agent).values()].map(sum));
       const byTier = (min,max) => siteTotals.map(counts=>

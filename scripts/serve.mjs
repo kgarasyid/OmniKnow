@@ -24,7 +24,7 @@ const hasBundledAskDirectory = !isPreview && !explicitAskDirectory &&
   await stat(bundledAskDirectory).then(info => info.isDirectory(), () => false);
 const askDirectory = explicitAskDirectory || (hasBundledAskDirectory ? fileURLToPath(bundledAskDirectory) : null);
 const askReader = fileURLToPath(new URL('./read-ask-summary.py', import.meta.url));
-const askDetailsEnabled = args.includes('--ask-details') && !isPreview;
+const askDetailsEnabled = !args.includes('--no-ask-details') && !isPreview;
 const askData = askDirectory
   ? promisify(execFile)('python3', ['-B', askReader, askDirectory, ...(askDetailsEnabled ? ['--details'] : [])],
       { timeout: 120_000, maxBuffer: 32 * 1024 * 1024 })

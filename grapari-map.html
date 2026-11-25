@@ -911,8 +911,12 @@ async function showSiteMap(month) {
       stage.append(marker);
     }
     for (const [site,button] of siteButtons) {
-      const count = site==='Semua site' ? sitePins.length : sitePins.filter(pin=>pin.dataset.site===site).length;
-      button.textContent = site+' · '+mapNumber.format(count);
+      const pins = site==='Semua site' ? sitePins : sitePins.filter(pin=>pin.dataset.site===site);
+      const count = pins.length;
+      const unitNames = [...new Set(pins.map(pin=>pin.dataset.unit).filter(Boolean))].join(', ');
+      button.textContent = site==='Semua site'
+        ? site+' · '+mapNumber.format(count)
+        : unitNames ? `${site} · ${unitNames}` : site+' · '+mapNumber.format(count);
       button.disabled = site!=='Semua site' && count===0;
     }
     nationalQuery.disabled = false;
