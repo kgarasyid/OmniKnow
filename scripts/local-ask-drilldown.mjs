@@ -138,13 +138,13 @@ export function localAskDrilldown(data, query) {
         const left = preferred.indexOf(a), right = preferred.indexOf(b);
         return (left<0?Number.MAX_SAFE_INTEGER:left)-(right<0?Number.MAX_SAFE_INTEGER:right) || collator.compare(a,b);
       });
-      const bottomByLocation = locations.map(location=>{
+      const rankingsByLocation = locations.map(location=>{
         const current = rows.filter(row=>locationFor(row)===location);
         const previous = previousRows.filter(row=>locationFor(row)===location);
-        return {location,total:current.length,rows:ranking(1,current,previous),
+        return {location,total:current.length,top:ranking(-1,current,previous),bottom:ranking(1,current,previous),
           ...(comparison ? {comparison:{...comparison,available:previous.length>0}} : {})};
       });
-      return {...result,bottomByLocation};
+      return {...result,rankingsByLocation};
     }
     if (query.get('bottomBy') !== 'area') return {...result,bottom:ranking(1)};
     const bottomByArea = [1,2,3,4].flatMap(number=>{

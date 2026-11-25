@@ -625,26 +625,25 @@ function bindDashboardAskDrilldown(report) {
           ${rankingTable(title+' · '+area.area,area.rows,area.comparison)}
         </details>`).join(''):'<p>Belum ada skor ASK GraPARI untuk area dalam cakupan ini.</p>'}</article>`;
     };
-    const locationBottom = locations=>{
-      const title = 'Bottom '+limit+' per Lokasi';
+    const locationRanks = (title,key,locations)=>{
       return `<article><h4>${title}</h4>${locations?.length?
         locations.map(location=>`<details class="canvas-ask-rank-area">
           <summary>${el(location.location)} <small>${count.format(location.total)} CSR dinilai</small></summary>
-          ${rankingTable(title+' · '+location.location,location.rows,location.comparison)}
+          ${rankingTable(title+' · '+location.location,location[key],location.comparison)}
         </details>`).join(''):'<p>Belum ada skor ASK per lokasi dalam cakupan ini.</p>'}</article>`;
     };
     try {
       const result = await request('ranking',{limit,bottomBy,compare:priorMonth?'previous':''});
       if (!rank.isConnected) return;
       const rankingNote = priorMonth ? `<p class="canvas-ask-rank-note">${result?.comparison?.available
-        ? `${el(priorShort)} · “Baru masuk” berarti sebelumnya di luar daftar.${bottomBy==='location'?' Posisi Bottom '+limit+' dihitung dari skor terendah di tiap lokasi.':bottomBy?' Posisi Bottom '+limit+' dihitung dari skor terendah di area masing-masing.':''}`
+        ? `${el(priorShort)} · “Baru masuk” berarti sebelumnya di luar daftar.${bottomBy==='location'?' Posisi Top dan Bottom '+limit+' dihitung dalam tiap lokasi.':bottomBy?' Posisi Bottom '+limit+' dihitung dari skor terendah di area masing-masing.':''}`
         : `Pembanding ${el(priorMonth)} belum tersedia untuk cakupan ini.`}</p>` : '';
       rank.innerHTML = !result ? '<p>Daftar nama ASK belum diaktifkan di server lokal.</p>'
-        : result.total ? `${rankingNote}<div class="canvas-ask-rank-grid">${rankingCard('Top '+limit,result.top,result.comparison)}${bottomBy==='location'
-          ? locationBottom(result.bottomByLocation)
-          : bottomBy
+        : result.total ? `${rankingNote}<div class="canvas-ask-rank-grid">${bottomBy==='location'
+          ? `${locationRanks('Top '+limit+' per Lokasi','top',result.rankingsByLocation)}${locationRanks('Bottom '+limit+' per Lokasi','bottom',result.rankingsByLocation)}`
+          : `${rankingCard('Top '+limit,result.top,result.comparison)}${bottomBy
           ? areaBottom(result.bottomByArea)
-          : rankingCard('Bottom '+limit,result.bottom,result.comparison)}</div>`
+          : rankingCard('Bottom '+limit,result.bottom,result.comparison)}`}</div>`
         : '<p>Belum ada skor ASK untuk cakupan ini.</p>';
     } catch {
       delete rank.dataset.loaded;

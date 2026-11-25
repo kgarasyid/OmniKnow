@@ -1422,7 +1422,7 @@ function ctpExecutiveDashboard(agents, trial=false) {
     scope:detailScope,comparisonPeriod,priorPeriod:priorLabel,priorShort,ytd,multiMonth,dimensions,bySegment:latest?.quadrantSegments,
    }),
    ranking:`<section class="canvas-panel canvas-ask-rankings" aria-labelledby="canvas-ask-ranking-title">
-    <div class="canvas-ask-section-heading"><h3 id="canvas-ask-ranking-title" tabindex="-1">Top ${rankingLimit} ASK &amp; Bottom ${rankingLimit} per Lokasi</h3>
+    <div class="canvas-ask-section-heading"><h3 id="canvas-ask-ranking-title" tabindex="-1">Top &amp; Bottom ${rankingLimit} ASK per Lokasi</h3>
      <p>${el(detailScope)} · ${ytd?'Skor valid terakhir tiap CSR':'Skor ASK berbobot /100'}</p></div>
     <div class="canvas-ask-rank-result"${covered?` data-ask-ranking="${rankingLimit}"`:''}${rankBottomByLocation?' data-ask-ranking-bottom="location"':''}${!multiMonth?` data-ask-ranking-prior="${el(priorLabel)}" data-ask-ranking-prior-short="${el(priorShort)}"`:''} aria-live="polite"><p>${covered?'Memuat peringkat ASK…':'Belum ada skor ASK untuk cakupan ini.'}</p></div>
    </section>`,

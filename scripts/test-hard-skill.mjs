@@ -311,11 +311,11 @@ const regionRoster = {placements:{'2026-10':{
  r3a:['E-Care','HAHAKO (HA)',['E-Care','','Region C','EC','ECARE SEMARANG'],'CSR Region C Tinggi',[95,95,95]],
 }}};
 const locationRanks = localAskDrilldown(regionRoster,params({from:'2026-10-01',view:'ranking',bottomBy:'location'}));
-assert.deepEqual(locationRanks.bottomByLocation.map(group=>[group.location,group.rows[0].name]),[
+assert.deepEqual(locationRanks.rankingsByLocation.map(group=>[group.location,group.bottom[0].name]),[
  ['Area 1','CSR Region A Rendah'],['CC Bandung','CSR Region B Rendah'],['E-Care Semarang','CSR Region C Tinggi'],
 ]);
 assert.equal(locationRanks.top[0].name,'CSR Region B Tinggi');
-assert.equal(locationRanks.bottomByLocation[0].rows.length,2);
+assert.equal(locationRanks.rankingsByLocation[0].top.length,2);
 const dimensionQuery = params({
  view:'dimension',dimension:'attitude',level:'high',segment:'Walk In Mitra',sort:'score-desc',
  locationArea:'Area 1',locationRegions:JSON.stringify(['Region Fiktif']),
