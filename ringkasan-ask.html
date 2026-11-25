@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ringkasan ASK — All CTP</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --navy: #1d2742;
+      --muted: #626b7d;
+      --border: #e0e3e9;
+      --green: #087c5e;
+      --orange: #a45805;
+      --red: #c82139;
+      --violet: #5349d6;
+      --pink: #e93661;
+      --chart-green: #0cad7d;
+      --chart-orange: #f39a12;
+      --chart-violet: #6658f2;
+      --space: clamp(0.9rem, 1.48vw, 1.75rem);
+      font-family: Poppins, "Avenir Next", "Segoe UI", system-ui, sans-serif;
+      font-synthesis: none;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; background: #fff; color: var(--navy); }
+    h1, h2, h3, p, figure, ul { margin: 0; }
+    strong { font-variant-numeric: tabular-nums; }
+    .ask-mockup {
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr) auto;
+      gap: var(--space);
+      width: min(100%, 120rem);
+      aspect-ratio: 16 / 9;
+      margin-inline: auto;
+      padding: clamp(1rem, 1.75vw, 2rem);
+    }
+    .ask-mockup-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1.25rem;
+    }
+    .ask-mockup-header h1 {
+      margin-bottom: 0.28em;
+      font-size: clamp(1.65rem, 2.57vw, 3.1rem);
+      line-height: 1.12;
+      font-weight: 700;
+      letter-spacing: -0.026em;
+    }
+    .ask-mockup-subtitle, .ask-mockup-context {
+      color: var(--muted);
+      font-size: clamp(0.875rem, 1.27vw, 1.5rem);
+      font-weight: 500;
+    }
+    .ask-mockup-total { text-align: right; }
+    .ask-mockup-total strong {
+      display: block;
+      margin-bottom: 0.08em;
+      color: #c9102e;
+      font-size: clamp(2rem, 3vw, 3.55rem);
+      font-weight: 700;
+      line-height: 1;
+    }
+    .ask-mockup-summary {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: clamp(0.65rem, 1.2vw, 1.4rem);
+      list-style: none;
+      padding: 0;
+    }
+    .ask-mockup-card {
+      min-width: 0;
+      padding: clamp(0.8rem, 1.34vw, 1.6rem);
+      border: 1px solid var(--border);
+      border-radius: clamp(0.65rem, 0.85vw, 1rem);
+      background: #fff;
+    }
+    .ask-mockup-summary > li {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 0.32rem;
+      min-height: clamp(8.1rem, 11.12vw, 13.35rem);
+    }
+    .ask-mockup-group {
+      color: var(--green);
+      font-size: clamp(0.69rem, 0.88vw, 1rem);
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      line-height: 1.25;
+    }
+    .ask-mockup-group.is-contact { color: var(--violet); }
+    .ask-mockup-summary h2, .ask-mockup-details h2, .ask-mockup-component h3 {
+      font-size: clamp(1rem, 1.44vw, 1.72rem);
+      line-height: 1.18;
+      font-weight: 700;
+      letter-spacing: -0.018em;
+    }
+    .ask-mockup-score {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.32rem;
+    }
+    .ask-mockup-score > strong { font-size: clamp(1.55rem, 2.75vw, 3.25rem); font-weight: 700; line-height: 1; }
+    .ask-mockup-high, .ask-mockup-up { color: var(--green); }
+    .ask-mockup-mid { color: var(--orange); }
+    .ask-mockup-low, .ask-mockup-down { color: var(--red); }
+    .ask-mockup-delta {
+      font-size: clamp(0.72rem, 1.17vw, 1.4rem);
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .ask-mockup-details {
+      display: grid;
+      grid-template-columns: minmax(0, 1.03fr) minmax(0, 1.72fr) minmax(0, 1.09fr);
+      gap: var(--space);
+      min-height: 0;
+    }
+    .ask-mockup-components { display: grid; grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 0.7rem; }
+    .ask-mockup-component {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.45rem;
+    }
+    .ask-mockup-component-copy { display: grid; min-width: 0; gap: 0.35rem; }
+    .ask-mockup-component h3 { display: flex; align-items: center; gap: 0.48em; }
+    .ask-mockup-dot {
+      display: inline-block;
+      flex: none;
+      width: 0.85em;
+      height: 0.85em;
+      border-radius: 50%;
+      background: var(--marker, var(--pink));
+    }
+    .ask-mockup-attitude { --marker: var(--chart-green); }
+    .ask-mockup-skill { --marker: var(--chart-violet); }
+    .ask-mockup-component .ask-mockup-context { padding-left: 1.55em; }
+    .ask-mockup-component-value {
+      flex: none;
+      font-size: clamp(1.9rem, 3.2vw, 3.9rem);
+      font-weight: 700;
+      line-height: 0.98;
+    }
+    .ask-mockup-context, .ask-mockup-period {
+      font-size: clamp(0.8rem, 1.06vw, 1.27rem);
+      line-height: 1.35;
+    }
+    .ask-mockup-panel-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25em 0.5em; }
+    .ask-mockup-panel-title h2 { display: flex; align-items: center; gap: 0.45em; }
+    .ask-mockup-panel-title .ask-mockup-dot { width: 0.55em; height: 0.55em; }
+    .ask-mockup-period { color: var(--muted); }
+    .ask-mockup-trend, .ask-mockup-distribution { display: flex; flex-direction: column; gap: 0.6rem; }
+    .ask-mockup-distribution ul {
+      display: grid;
+      grid-template-rows: repeat(3, 1fr);
+      flex: 1;
+      gap: clamp(0.7rem, 1.2vw, 1.4rem);
+      padding: 0;
+      list-style: none;
+    }
+    .ask-mockup-distribution li {
+      display: grid;
+      align-content: center;
+      gap: clamp(0.32rem, 0.7vw, 0.8rem);
+    }
+    .ask-mockup-distribution .ask-mockup-score > strong { font-size: clamp(1.7rem, 2.55vw, 3.1rem); }
+    .ask-mockup-share { font-size: clamp(0.95rem, 1.35vw, 1.6rem); }
+    .ask-mockup-track { height: clamp(0.38rem, 0.67vw, 0.78rem); background: #ebedf2; }
+    .ask-mockup-track > span { display: block; width: var(--share); height: 100%; background: var(--bar); }
+    .ask-mockup-footer { color: var(--muted); font-size: clamp(0.75rem, 0.86vw, 1rem); font-style: italic; line-height: 1.5; }
+    .ask-mockup-footer .ask-mockup-demo { padding-top: 0.2rem; }
+    .ask-mockup-chart {display:flex;flex-direction:column;flex:1;gap:0.35rem;min-height:0}
+    .ask-mockup-chart-plot {position:relative;flex:1;min-height:0}
+    .ask-mockup-chart svg {position:absolute;inset:0;display:block;width:100%;height:100%;overflow:visible}
+    .ask-mockup-chart-grid {stroke:#e9edf3;stroke-width:1;vector-effect:non-scaling-stroke}
+    .ask-mockup-chart-axis {fill:var(--muted)}
+    .ask-mockup-chart-axis text {font-size:15px;font-weight:500}
+    .ask-mockup-chart-line {
+      stroke:var(--series);
+      stroke-width:3.5;
+      stroke-linejoin:round;
+      stroke-linecap:round;
+      fill:none;
+    }
+    .ask-mockup-chart-point {cursor:help;outline:none}
+    .ask-mockup-chart-point .ask-mockup-hit {fill:transparent}
+    .ask-mockup-chart-point .ask-mockup-chart-dot {fill:var(--series);stroke:transparent;stroke-width:2}
+    .ask-mockup-chart-point:hover .ask-mockup-chart-dot,
+    .ask-mockup-chart-point:focus-visible .ask-mockup-chart-dot {stroke:#202a44}
+    .ask-mockup-chart-tip {
+      position:absolute;
+      z-index:1;
+      left:var(--tip-x);
+      top:var(--tip-y);
+      transform:translate(-50%,calc(-100% - 9px));
+      max-width:calc(100% - 14px);
+      margin:0;
+      padding:6px 9px;
+      border-radius:6px;
+      background:#202a44;
+      color:#fff;
+      font-size:12px;
+      line-height:1.45;
+      text-align:center;
+      pointer-events:none;
+    }
+    .ask-mockup-chart-legend {
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:center;
+      list-style:none;
+      gap:7px 16px;
+      margin:0;
+      padding:0;
+      color:var(--muted);
+      font-size:clamp(0.75rem, 0.88vw, 1rem);
+      font-weight:500;
+    }
+    .ask-mockup-chart-legend li {display:flex;align-items:center;gap:4px}
+    .ask-mockup-chart-legend i {position:relative;width:24px;height:3px;background:var(--series)}
+    .ask-mockup-chart-legend i::before {
+      position:absolute;
+      inset:50% auto auto 50%;
+      transform:translate(-50%,-50%);
+      width:8px;
+      height:8px;
+      border-radius:50%;
+      background:var(--series);
+      content:"";
+    }
+    .ask-mockup-chart figcaption {
+      margin-top:1px;
+      text-align:center;
+      color:var(--muted);
+      font-size:0.75rem;
+    }
+    @media (max-width:68rem) {
+      .ask-mockup-chart-plot {flex:auto;aspect-ratio:640 / 374}
+    }
+    @media (max-width:36rem) {
+      .ask-mockup-chart-axis text {font-size:20px}
+      .ask-mockup-chart-legend {gap:5px 9px}
+      .ask-mockup-chart-legend i {width:15px}
+    }
+    @media (max-width: 68rem) {
+      .ask-mockup { aspect-ratio: auto; grid-template-rows: auto; }
+      .ask-mockup-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .ask-mockup-details { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .ask-mockup-trend { grid-column: 1 / -1; grid-row: 2; }
+      .ask-mockup-context { font-size: 0.875rem; }
+    }
+    @media (max-width: 36rem) {
+      .ask-mockup-header { flex-direction: column; gap: 0.8rem; }
+      .ask-mockup-total { text-align: left; }
+      .ask-mockup-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .ask-mockup-summary > li { min-height: 7rem; }
+      .ask-mockup-details { grid-template-columns: minmax(0, 1fr); }
+      .ask-mockup-trend { grid-row: auto; }
+      .ask-mockup-component { min-height: 6rem; }
+    }
+    @media print {
+      @page { size: landscape; margin: 0; }
+      body { print-color-adjust: exact; }
+      .ask-mockup { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <main class="ask-mockup">
+    <header class="ask-mockup-header">
+      <div>
+        <h1>Ringkasan ASK — All CTP</h1>
+        <p class="ask-mockup-subtitle">GraPARI · Call Center · E-Care | periode Agustus 2026 vs Juli 2026</p>
+      </div>
+      <div class="ask-mockup-total">
+        <strong>4,413</strong>
+        <p class="ask-mockup-context">agent dinilai · ASK nasional 90.8</p>
+      </div>
+    </header>
+
+    <ul class="ask-mockup-summary" aria-label="Ringkasan ASK per area dan channel">
+      <li class="ask-mockup-card">
+        <p class="ask-mockup-group">GRAPARI</p><h2>Area 1</h2>
+        <p class="ask-mockup-score"><strong class="ask-mockup-high">96.1</strong><span class="ask-mockup-delta ask-mockup-down" aria-label="Turun 2.4 poin">▼ 2.4</span></p>
+        <p class="ask-mockup-context">rata ASK · 602 agent</p>
+      </li>
+      <li class="ask-mockup-card">
+        <p class="ask-mockup-group">GRAPARI</p><h2>Area 2</h2>
+        <p class="ask-mockup-score"><strong class="ask-mockup-high">91.0</strong><span class="ask-mockup-delta ask-mockup-up" aria-label="Naik 1.3 poin">▲ 1.3</span></p>
+        <p class="ask-mockup-context">rata ASK · 727 agent</p>
+      </li>
+      <li class="ask-mockup-card">
+        <p class="ask-mockup-group">GRAPARI</p><h2>Area 3</h2>
+        <p class="ask-mockup-score"><strong class="ask-mockup-high">93.0</strong><span class="ask-mockup-delta ask-mockup-down" aria-label="Turun 2.8 poin">▼ 2.8</span></p>
+        <p class="ask-mockup-context">rata ASK · 702 agent</p>
+      </li>
+      <li class="ask-mockup-card">
+        <p class="ask-mockup-group">GRAPARI</p><h2>Area 4</h2>
+        <p class="ask-mockup-score"><strong class="ask-mockup-mid">89.7</strong><span class="ask-mockup-delta ask-mockup-up" aria-label="Naik 0.1 poin">▲ 0.1</span></p>
+        <p class="ask-mockup-context">rata ASK · 607 agent</p>
+      </li>
+      <li class="ask-mockup-card">
+        <p class="ask-mockup-group is-contact">CONTACT CENTER</p><h2>Call Center</h2>
+        <p class="ask-mockup-score"><strong class="ask-mockup-mid">85.4</strong><span class="ask-mockup-delta ask-mockup-down" aria-label="Turun 0.6 poin">▼ 0.6</span></p>
+        <p class="ask-mockup-context">rata ASK · 874 agent</p>
+      </li>
+      <li class="ask-mockup-card">
+        <p class="ask-mockup-group is-contact">CONTACT CENTER</p><h2>E-Care</h2>
+        <p class="ask-mockup-score"><strong class="ask-mockup-high">91.3</strong><span class="ask-mockup-delta ask-mockup-up" aria-label="Naik 1.0 poin">▲ 1.0</span></p>
+        <p class="ask-mockup-context">rata ASK · 901 agent</p>
+      </li>
+    </ul>
+
+    <div class="ask-mockup-details">
+      <section class="ask-mockup-components" aria-label="Komponen ASK">
+        <article class="ask-mockup-card ask-mockup-component ask-mockup-attitude">
+          <div class="ask-mockup-component-copy">
+            <h3><span class="ask-mockup-dot" aria-hidden="true"></span>Attitude</h3>
+            <p class="ask-mockup-context">rata-rata nasional Agu</p>
+            <p class="ask-mockup-context">Jul 88.8 <span class="ask-mockup-delta ask-mockup-down" aria-label="Turun 0.8 poin">▼ 0.8</span></p>
+          </div>
+          <strong class="ask-mockup-component-value">88.0</strong>
+        </article>
+        <article class="ask-mockup-card ask-mockup-component ask-mockup-skill">
+          <div class="ask-mockup-component-copy">
+            <h3><span class="ask-mockup-dot" aria-hidden="true"></span>Skill</h3>
+            <p class="ask-mockup-context">rata-rata nasional Agu</p>
+            <p class="ask-mockup-context">Jul 93.3 <span class="ask-mockup-delta ask-mockup-down" aria-label="Turun 0.9 poin">▼ 0.9</span></p>
+          </div>
+          <strong class="ask-mockup-component-value">92.4</strong>
+        </article>
+        <article class="ask-mockup-card ask-mockup-component">
+          <div class="ask-mockup-component-copy">
+            <h3><span class="ask-mockup-dot" aria-hidden="true"></span>Knowledge</h3>
+            <p class="ask-mockup-context">rata-rata nasional Agu</p>
+            <p class="ask-mockup-context">Jul 91.8 <span class="ask-mockup-delta ask-mockup-up" aria-label="Naik 0.2 poin">▲ 0.2</span></p>
+          </div>
+          <strong class="ask-mockup-component-value">92.0</strong>
+        </article>
+      </section>
+
+      <section class="ask-mockup-card ask-mockup-trend" aria-labelledby="ask-mockup-trend-title">
+        <header class="ask-mockup-panel-title">
+          <h2 id="ask-mockup-trend-title"><span class="ask-mockup-dot" aria-hidden="true"></span>Tren ASK per Channel</h2>
+          <p class="ask-mockup-period">Jan–Agu 2026</p>
+        </header>
+        <figure class="ask-mockup-chart">
+          <div class="ask-mockup-chart-plot">
+            <svg id="ask-mockup-lines" viewBox="0 0 640 374" role="group" aria-labelledby="ask-mockup-lines-name" aria-describedby="ask-mockup-lines-desc">
+              <title id="ask-mockup-lines-name">Tren rata-rata ASK per channel</title>
+              <desc id="ask-mockup-lines-desc">Skala 60 hingga 100. Pilih titik untuk membaca nilai, bulan, dan sumbernya.</desc>
+            </svg>
+            <p class="ask-mockup-chart-tip" aria-hidden="true" hidden></p>
+          </div>
+          <ul class="ask-mockup-chart-legend" aria-label="Legenda grafik">
+            <li style="--series:var(--chart-green)"><i aria-hidden="true"></i>GraPARI</li>
+            <li style="--series:var(--pink)"><i aria-hidden="true"></i>Call Center</li>
+            <li style="--series:var(--chart-violet)"><i aria-hidden="true"></i>E-Care</li>
+          </ul>
+          <figcaption id="ask-mockup-chart-note">Jan–Jun · estimasi dari referensi</figcaption>
+        </figure>
+      </section>
+
+      <section class="ask-mockup-card ask-mockup-distribution" aria-labelledby="ask-mockup-distribution-title">
+        <header class="ask-mockup-panel-title">
+          <h2 id="ask-mockup-distribution-title"><span class="ask-mockup-dot" aria-hidden="true"></span>Distribusi skor ASK</h2>
+        </header>
+        <ul>
+          <li style="--share:63%; --bar:var(--chart-green)">
+            <p class="ask-mockup-score"><strong>2,776</strong><b class="ask-mockup-share ask-mockup-high">63%</b></p>
+            <p class="ask-mockup-context">≥ 90 · Excellent</p>
+            <div class="ask-mockup-track" aria-hidden="true"><span></span></div>
+          </li>
+          <li style="--share:27%; --bar:var(--chart-orange)">
+            <p class="ask-mockup-score"><strong>1,177</strong><b class="ask-mockup-share ask-mockup-mid">27%</b></p>
+            <p class="ask-mockup-context">80–89 · Good</p>
+            <div class="ask-mockup-track" aria-hidden="true"><span></span></div>
+          </li>
+          <li style="--share:11%; --bar:#ef4147">
+            <p class="ask-mockup-score"><strong>470</strong><b class="ask-mockup-share ask-mockup-low">11%</b></p>
+            <p class="ask-mockup-context">&lt; 80 · Perlu perbaikan</p>
+            <div class="ask-mockup-track" aria-hidden="true"><span></span></div>
+          </li>
+        </ul>
+      </section>
+    </div>
+
+    <footer class="ask-mockup-footer">
+      <p>Warna skor: hijau ≥ 90 · kuning 80–89 · merah &lt; 80. ▲/▼ = selisih vs Juli 2026. GraPARI Agustus memakai tapping SQ Mitra. Agent tanpa tapping Agustus memakai tapping Juli.</p>
+      <p class="ask-mockup-demo">Mockup · Total agent dan distribusi perlu diverifikasi sebelum publikasi.</p>
+    </footer>
+  </main>
+  <script>
+    (() => {
+      const plot = document.getElementById('ask-mockup-lines');
+      const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu'];
+      const fullMonths = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus'];
+      const source = {
+        chart: 'estimasi dari referensi',
+        explicit: 'nilai pada referensi',
+      };
+      const series = [
+        {name:'GraPARI', color:'var(--chart-green)', values:[92.3,92.9,93.9,92.8,92.8,93.4,93.5,92.4]},
+        {name:'Call Center', color:'var(--pink)', values:[75.8,73.3,74.7,71.2,78.6,93.5,86.0,85.4]},
+        {name:'E-Care', color:'var(--chart-violet)', values:[73.6,72.4,73.6,72.2,76.2,93.9,90.3,91.3]},
+      ];
+      const y = score => 322 - (score-60)*7.55;
+      const x = index => 72 + index*76.5;
+      const grid = [60,70,80,90,100].map(score => {
+        const top = y(score);
+        return `<line class="ask-mockup-chart-grid" x1="36" y1="${top}" x2="636" y2="${top}"/>
+          <text x="24" y="${top}" text-anchor="end" dominant-baseline="middle">${score}</text>`;
+      }).join('');
+      const ticks = months.map((month,index) => `<text x="${x(index)}" y="351" text-anchor="middle">${month}</text>`).join('');
+      const lines = series.map(({color,values}) =>
+        `<polyline class="ask-mockup-chart-line" style="--series:${color}" points="${values.map((score,index) => `${x(index)},${y(score)}`).join(' ')}"/>`).join('');
+      const points = series.map(({name,color,values}) => values.map((score,index) => {
+        const origin = index < 6 ? source.chart : source.explicit;
+        const label = `${name}, ${fullMonths[index]} 2026, ${score.toFixed(1)}, ${origin}`;
+        return `<g class="ask-mockup-chart-point" role="img" tabindex="0" aria-label="${label}"
+          transform="translate(${x(index)} ${y(score)})"
+          style="--series:${color}">
+          <circle class="ask-mockup-hit" r="11"/>
+          <circle class="ask-mockup-chart-dot" r="5.5" pointer-events="none"/>
+        </g>`;
+      }).join('')).join('');
+      plot.insertAdjacentHTML('beforeend', `<g class="ask-mockup-chart-axis" aria-hidden="true">${grid}${ticks}</g><g aria-hidden="true">${lines}</g>${points}`);
+
+      const tip = plot.nextElementSibling;
+      const showTip = event => {
+        const point = event.currentTarget;
+        tip.textContent = point.getAttribute('aria-label');
+        const marker = point.getBoundingClientRect();
+        const frame = plot.getBoundingClientRect();
+        const horizontal = 100 * (marker.left + marker.width / 2 - frame.left) / frame.width;
+        const vertical = 100 * (marker.top + marker.height / 2 - frame.top) / frame.height;
+        tip.style.setProperty('--tip-x', `${Math.min(78,Math.max(22,horizontal))}%`);
+        tip.style.setProperty('--tip-y', `${vertical}%`);
+        tip.hidden = false;
+      };
+      const hideTip = () => { tip.hidden = true; };
+      for (const point of plot.querySelectorAll('.ask-mockup-chart-point')) {
+        point.addEventListener('pointerenter', showTip);
+        point.addEventListener('pointerleave', hideTip);
+        point.addEventListener('focus', showTip);
+        point.addEventListener('blur', hideTip);
+        point.addEventListener('click', showTip);
+        point.addEventListener('keydown', event => {
+          if (event.key === 'Escape') hideTip();
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            showTip(event);
+          }
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

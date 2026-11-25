@@ -3,5 +3,16 @@
   "framework": null,
   "buildCommand": "npm run build",
   "installCommand": "npm ci --ignore-scripts",
-  "outputDirectory": "dist"
+  "outputDirectory": "dist",
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/api/gateway?route=$1"
+    }
+  ],
+  "functions": {
+    "api/gateway.js": {
+      "includeFiles": "dist/**"
+    }
+  }
 }

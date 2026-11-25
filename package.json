@@ -16,6 +16,8 @@
     "test:survey": "node scripts/test-survey.mjs",
     "test:dashboard": "node scripts/test-dashboard.mjs",
     "verify:baseline": "node scripts/check.mjs --baseline",
-    "verify:live": "node scripts/check.mjs --live"
+    "verify:live": "node scripts/check.mjs --live",
+    "test:ask": "node scripts/test-ask.mjs",
+    "test:auth": "node scripts/test-auth.mjs"
   }
 }

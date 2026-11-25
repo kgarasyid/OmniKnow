@@ -1,3 +1,4 @@
+import {requireSession} from '../server/auth.mjs';
 // Read-only, public Google response feeds. No credentials or arbitrary URL proxying.
 export function normalizeFeedUrl(value) {
   let u;
@@ -67,4 +68,4 @@ export async function handleSurveyRequest(request, fetcher = fetch) {
     return Response.json({error:message || 'Could not read the response feed.'}, {status:400,headers});
   }
 }
-export async function POST(request) { return handleSurveyRequest(request); }
+export async function POST(request) { const origin=request.headers.get('origin');if(origin&&origin!==new URL(request.url).origin)return Response.json({error:'Cross-origin requests are not supported.'},{status:403});if(!requireSession(request))return Response.json({error:'Authentication required'},{status:401});return handleSurveyRequest(request); }

@@ -1,4 +1,4 @@
-function exportScope(){return `CTP: ${ctp} | Area/Site: ${ctpScope} | Region: ${region} | Geographic area: ${area} | Activity: ${category} | Agent search: ${q||'All'}`}
+function exportScope(){return `CTP: ${ctp} | Area/Site: ${ctpScope} | Region: ${region} | Geographic area: ${area} | Activity: ${category} | Agent search: ${q||'All'}${page===0?' | Location: '+dashboardLocationLabel():''}`}
 function makeDashboardPdf(title,lines,bars){
   const objects=[null],add=s=>(objects.push(s),objects.length-1),catalog=add(''),pages=add(''),font=add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'),ids=[];
   const pagesOps=[];
@@ -13,7 +13,13 @@ function makeDashboardPdf(title,lines,bars){
   let out='%PDF-1.4\n',offsets=[0];objects.slice(1).forEach((s,i)=>{offsets.push(out.length);out+=(i+1)+' 0 obj\n'+s+'\nendobj\n'});const start=out.length;out+='xref\n0 '+objects.length+'\n0000000000 65535 f \n'+offsets.slice(1).map(n=>String(n).padStart(10,'0')+' 00000 n \n').join('')+`trailer\n<< /Size ${objects.length} /Root ${catalog} 0 R >>\nstartxref\n${start}\n%%EOF`;return new Blob([out],{type:'application/pdf'});
 }
 function downloadPagePdf(){
-  const title=page===0?DASH_TABS[dashboardTab]+(dashboardSub[dashboardTab]?' - '+dashboardSub[dashboardTab]:''):NAV[page][1];
+  if(page===3||(page===0&&dashboardTab===1)){
+    const s=askStats(askScope(filtered())),prior=askPrior();
+    const lines=[exportScope(),'Segment: '+askSegmentFilter,'Source: '+(s.all.some(isShowcaseAgent)?'Synthetic demo history':'Local dated records'),'Assessed: '+s.n+' | Non quadrant: '+s.excluded.length,'Weighted ASK: '+(s.score==null?'No data':s.score.toFixed(2))+' / 100',...s.high.map((h,i)=>['Attitude','Skill','Knowledge'][i]+' High: '+h.count+' / '+s.n+' ('+(h.rate==null?'No data':h.rate.toFixed(1)+'%')+') | Change: '+(h.rate==null||prior.high[i].rate==null?'No previous data':(h.rate-prior.high[i].rate).toFixed(1)+' pp')),...ASK_QUADRANTS.map(([q])=>q+': '+s.valid.filter(a=>askExcelLogic(a).quadrant===q).length),'High >=80. Final ASK = 40% Attitude + 30% Skill + 30% Knowledge.','Personal workbook data has not been imported.'];
+    savePdfBlob(makeDashboardPdf('ASK Capability Summary',lines,s.high.filter(h=>h.rate!=null).map((h,i)=>({label:['High Attitude','High Skill','High Knowledge'][i],value:h.rate,color:['#ed1639','#f18b25','#7059d9'][i]}))),'OmniKnow-ASK-'+reportFrom+'.pdf');notify('ASK PDF download requested');return;
+  }
+
+  const title=page===0?dashboardViewTitle()+(dashboardSub[dashboardTab]?' - '+dashboardSub[dashboardTab]:''):NAV[page][1];
   const root=document.querySelector(page===0?'.dw-panel':'.main');
   const lines=[exportScope(),...(root?.innerText||'No records').split('\n').map(s=>s.trim()).filter(Boolean)];
   const ds=rankDataset(filtered(),page===8?4:page===3?1:dashboardTab,page===8?'Post Test':dashboardSub[dashboardTab]);

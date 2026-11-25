@@ -1,3 +1,5 @@
+Local development runs on loopback with fictional demo data. Deployment access uses Microsoft Entra. See [AUTH-SETUP.md](docs/AUTH-SETUP.md).
+
 # OmniKnow — complete editable developer package
 
 **Current handoff:** Start with [DEVELOPER-HANDOFF.md](docs/DEVELOPER-HANDOFF.md). This package includes the latest Executive Summary, dated reporting, MoM comparisons, detailed VoC, all application source, tests and build scripts. `SOURCE-MANIFEST.json` in the ZIP identifies the source revision and file checksums.
@@ -34,6 +36,10 @@ npm run preview
 ```
 
 The preview uses **http://127.0.0.1:4173**. To choose another port, use `npm run dev -- --port 5174`. Each port is a different browser-storage origin.
+
+The local development server can read Training and Tryout workbooks with Python 3. Use the ignored `private-data/training/` and `private-data/tryout/` directories, or pass `--training-dir` and `--tryout-dir` with the corresponding local paths. Training reads the Online and Offline sheets in `Report Training.xlsx` when available, with the pre/post recap sheets in `Recap Report Training.xlsx` as a fallback. Tryout reads `Participant Data` from the week/level Susulan exports and uses the reported accuracy for rows with attempted questions. Hard Skill can also read an optional local `private-data/contact-center-ticket-report.json` containing monthly Fixed and Mobile aggregates from the Call Center escalation report. The Fixed and Mobile report uses its own coverage, while workbook counts use the month of entry. Restart the local server after replacing sources. The browser receives only summaries for the selected dates and location. These files are outside the production build.
+
+For Bad Ticket Mobile, place `Data Bad Ticket All CTP Mobile.xlsx` in `private-data/`. The reader uses the monthly `BT` sheets and the `tgl_tiket` reporting date. The two Bad Ticket workbooks in the training directory supply Fixed. Workbook Mobile data takes priority over presentation references for the months it covers.
 
 If npm is not on PATH but Node is available (as in some bundled Codex runtimes), the same scripts can run directly:
 

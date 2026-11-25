@@ -1,0 +1,132 @@
+<style>
+  #ask-demo-preview {padding:clamp(10px,2.4vw,18px)}
+  #ask-demo-panel {
+    --paper:light-dark(#fff,#1b2432);
+    --ink:light-dark(#1b365d,#e5eefc);
+    --subtle:light-dark(#4d6279,#b8c7db);
+    --line:light-dark(#cfdae6,#44536a);
+    --rose:light-dark(#fff1f5,#392531);
+    --rose-edge:light-dark(#ddaabb,#734653);
+    --track:light-dark(#e9eff6,#344357);
+    --cc:light-dark(#14764b,#5aba8a);
+    --ec:light-dark(#2b74ad,#73b9ec);
+    --tomo:light-dark(#f47a91,#f394a7);
+    --mitra:light-dark(#a20c34,#e15c87);
+    border:1px solid var(--rose-edge);
+    border-radius:15px;
+    overflow:hidden;
+    background:var(--paper);
+    color:var(--ink);
+    font:400 14px/1.4 Manrope,system-ui,sans-serif;
+  }
+  #ask-demo-panel :is(h2,h3,p,ul) {margin:0}
+  #ask-demo-panel .ask-title {padding:14px clamp(12px,3vw,20px);background:var(--rose);border-bottom:1px solid var(--rose-edge)}
+  #ask-demo-panel h2 {font-size:19px;font-weight:750}
+  #ask-demo-panel .ask-title p {margin-top:3px;color:var(--subtle);font-size:12px}
+  #ask-demo-panel .ask-demo-body {display:grid;gap:16px;padding:clamp(12px,3vw,20px)}
+  #ask-demo-panel .ask-summary {display:grid;gap:6px}
+  #ask-demo-panel .ask-summary p:first-child {display:flex;align-items:baseline;flex-wrap:wrap;gap:2px 10px;font-size:18px;font-weight:650}
+  #ask-demo-panel .ask-summary strong {font-size:36px;line-height:1.1;letter-spacing:-.035em}
+  #ask-demo-panel .ask-summary p:nth-child(2) {font-weight:650}
+  #ask-demo-panel .ask-summary p:last-child {color:var(--subtle);font-size:12px}
+  #ask-demo-panel .ask-bars {display:grid;gap:12px}
+  #ask-demo-panel h3 {font-size:14px;font-weight:750}
+  #ask-demo-panel .ask-result {display:grid;gap:6px}
+  #ask-demo-panel .ask-result + .ask-result {padding-top:10px;border-top:1px solid var(--line)}
+  #ask-demo-panel .ask-result-label {display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:2px 10px}
+  #ask-demo-panel .ask-result-label p {font-variant-numeric:tabular-nums;color:var(--subtle);font-size:12px}
+  #ask-demo-panel .ask-result-label strong {color:var(--ink)}
+  #ask-demo-panel .ask-track {display:flex;height:10px;overflow:hidden;border-radius:5px;background:var(--track)}
+  #ask-demo-panel .ask-track span {flex:none;width:calc(var(--count) * 100% / 5068);background:var(--channel)}
+  #ask-demo-panel [data-channel="cc"] {--channel:var(--cc)}
+  #ask-demo-panel [data-channel="ec"] {--channel:var(--ec)}
+  #ask-demo-panel [data-channel="tomo"] {--channel:var(--tomo)}
+  #ask-demo-panel [data-channel="mitra"] {--channel:var(--mitra)}
+  #ask-demo-panel .ask-channels {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px 9px;padding:0;list-style:none}
+  #ask-demo-panel .ask-channels li {display:flex;align-items:baseline;flex-wrap:wrap;gap:1px 4px;color:var(--subtle);font-size:11px}
+  #ask-demo-panel .ask-channels li::before {content:"";width:7px;height:7px;align-self:center;border-radius:2px;background:var(--channel)}
+  #ask-demo-panel .ask-channels strong {margin-inline-start:1px;color:var(--ink);font-variant-numeric:tabular-nums}
+  #ask-demo-panel .ask-detail {border-top:1px solid var(--line)}
+  #ask-demo-panel .ask-detail summary {min-height:44px;padding:12px 0;font-weight:750}
+  #ask-demo-panel .ask-detail table {width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px}
+  #ask-demo-panel .ask-detail :is(th,td) {padding:6px 0;border-bottom:1px solid var(--line);text-align:start;vertical-align:top}
+  #ask-demo-panel .ask-detail tr > :last-child {width:6ch;text-align:end;font-variant-numeric:tabular-nums}
+  #ask-demo-panel .ask-detail tbody th {font-weight:550}
+  #ask-demo-panel .ask-detail small {display:block;color:var(--subtle);font-size:11px}
+  @media (max-width:520px) {
+    #ask-demo-panel .ask-channels {grid-template-columns:repeat(2,minmax(0,1fr))}
+  }
+</style>
+<div id="ask-demo-preview" class="viz-dotted-background">
+  <section id="ask-demo-panel" aria-labelledby="ask-demo-heading">
+    <header class="ask-title">
+      <h2 id="ask-demo-heading">Kelulusan ASK Nasional</h2>
+      <p>September 2026</p>
+    </header>
+    <div class="ask-demo-body">
+      <div class="ask-summary">
+        <p><strong>69,3%</strong> lulus di ketiga dimensi</p>
+        <p>3.511 dari 5.068 CSR yang dinilai</p>
+        <p>Skor minimal 80 per dimensi · Sikap, Keterampilan, dan Pengetahuan</p>
+      </div>
+      <div class="ask-bars" role="group" aria-label="Jumlah dimensi yang lulus dan rincian per kanal">
+        <div class="ask-result">
+          <div class="ask-result-label"><h3>Lulus di 3 dimensi</h3><p><strong>3.511 CSR</strong> · 69,3%</p></div>
+          <div class="ask-track" aria-hidden="true">
+            <span data-channel="cc" style="--count:456"></span><span data-channel="ec" style="--count:729"></span><span data-channel="tomo" style="--count:1227"></span><span data-channel="mitra" style="--count:1099"></span>
+          </div>
+          <ul class="ask-channels">
+            <li data-channel="cc">Call Center <strong>456</strong></li><li data-channel="ec">E-Care <strong>729</strong></li>
+            <li data-channel="tomo">GraPARI TOMO <strong>1.227</strong></li><li data-channel="mitra">GraPARI Mitra <strong>1.099</strong></li>
+          </ul>
+        </div>
+        <div class="ask-result">
+          <div class="ask-result-label"><h3>Lulus di 2 dimensi</h3><p><strong>952 CSR</strong> · 18,8%</p></div>
+          <div class="ask-track" aria-hidden="true">
+            <span data-channel="cc" style="--count:434"></span><span data-channel="ec" style="--count:136"></span><span data-channel="tomo" style="--count:248"></span><span data-channel="mitra" style="--count:134"></span>
+          </div>
+          <ul class="ask-channels">
+            <li data-channel="cc">Call Center <strong>434</strong></li><li data-channel="ec">E-Care <strong>136</strong></li>
+            <li data-channel="tomo">GraPARI TOMO <strong>248</strong></li><li data-channel="mitra">GraPARI Mitra <strong>134</strong></li>
+          </ul>
+        </div>
+        <div class="ask-result">
+          <div class="ask-result-label"><h3>Lulus di 1 dimensi</h3><p><strong>143 CSR</strong> · 2,8%</p></div>
+          <div class="ask-track" aria-hidden="true">
+            <span data-channel="cc" style="--count:85"></span><span data-channel="ec" style="--count:33"></span><span data-channel="tomo" style="--count:19"></span><span data-channel="mitra" style="--count:6"></span>
+          </div>
+          <ul class="ask-channels">
+            <li data-channel="cc">Call Center <strong>85</strong></li><li data-channel="ec">E-Care <strong>33</strong></li>
+            <li data-channel="tomo">GraPARI TOMO <strong>19</strong></li><li data-channel="mitra">GraPARI Mitra <strong>6</strong></li>
+          </ul>
+        </div>
+        <div class="ask-result">
+          <div class="ask-result-label"><h3>Belum lulus di ketiga dimensi</h3><p><strong>462 CSR</strong> · 9,1%</p></div>
+          <div class="ask-track" aria-hidden="true">
+            <span data-channel="cc" style="--count:148"></span><span data-channel="ec" style="--count:253"></span><span data-channel="tomo" style="--count:45"></span><span data-channel="mitra" style="--count:16"></span>
+          </div>
+          <ul class="ask-channels">
+            <li data-channel="cc">Call Center <strong>148</strong></li><li data-channel="ec">E-Care <strong>253</strong></li>
+            <li data-channel="tomo">GraPARI TOMO <strong>45</strong></li><li data-channel="mitra">GraPARI Mitra <strong>16</strong></li>
+          </ul>
+        </div>
+      </div>
+      <details class="ask-detail">
+        <summary>Lihat rincian 8 kuadran</summary>
+        <table aria-label="Delapan kuadran ASK September 2026">
+          <thead><tr><th scope="col">Hasil penilaian</th><th scope="col">CSR</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Ketiga dimensi lulus<small>HAHAKO (HA)</small></th><td>3.511</td></tr>
+            <tr><th scope="row">Sikap belum lulus<small>HAHAKO (LA)</small></th><td>529</td></tr>
+            <tr><th scope="row">Pengetahuan belum lulus<small>HALOKO (HA)</small></th><td>317</td></tr>
+            <tr><th scope="row">Keterampilan belum lulus<small>LOHAKO (HA)</small></th><td>106</td></tr>
+            <tr><th scope="row">Sikap dan Pengetahuan belum lulus<small>HALOKO (LA)</small></th><td>104</td></tr>
+            <tr><th scope="row">Sikap dan Keterampilan belum lulus<small>LOHAKO (LA)</small></th><td>16</td></tr>
+            <tr><th scope="row">Keterampilan dan Pengetahuan belum lulus<small>LOLOKO (HA)</small></th><td>23</td></tr>
+            <tr><th scope="row">Ketiga dimensi belum lulus<small>LOLOKO (LA)</small></th><td>462</td></tr>
+          </tbody>
+        </table>
+      </details>
+    </div>
+  </section>
+</div>

@@ -6,6 +6,7 @@ const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
 const main=html.match(/<script>([\s\S]*?)<\/script>/)[1].replace(/initializePeriodFeatures\(\);/,'').replace(/render\(\);\s*$/,'');
 const c=vm.createContext({structuredClone,Blob,console,localStorage:{getItem:()=>null,setItem:()=>{}},setTimeout,clearTimeout});
 vm.runInContext(await readFile(new URL('../survey-monitor.js',import.meta.url),'utf8'),c);
+vm.runInContext(await readFile(new URL('../dashboard-workspace.js',import.meta.url),'utf8'),c);
 vm.runInContext(await readFile(new URL('../dashboard-insights.js',import.meta.url),'utf8'),c);vm.runInContext(main,c);
 const run=code=>JSON.parse(JSON.stringify(vm.runInContext(code,c)));
 assert.equal(run('surveyScore("8 / 10",100)'),80);
