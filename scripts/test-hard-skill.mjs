@@ -306,15 +306,16 @@ assert.deepEqual(localAskDrilldown(areaRoster,params(areaFilters,['Area 2'])).bo
 const regionRoster = {placements:{'2026-10':{
  r1a:['Walk In Mitra','HAHAKO (HA)',['GraPARI','Area 1','Region A','U1','Unit Satu'],'CSR Region A Tinggi',[100,90,90]],
  r1b:['Walk In Mitra','HAHAKO (HA)',['GraPARI','Area 1','Region A','U2','Unit Dua'],'CSR Region A Rendah',[80,80,80]],
- r2a:['Call In','HAHAKO (HA)',['Call Center','','Region B','CC','Unit Tiga'],'CSR Region B Tinggi',[90,100,100]],
- r2b:['Call In','HAHAKO (HA)',['Call Center','','Region B','CC','Unit Empat'],'CSR Region B Rendah',[70,70,70]],
+ r2a:['Call In','HAHAKO (HA)',['Call Center','','Region B','CC','CC BANDUNG'],'CSR Region B Tinggi',[90,100,100]],
+ r2b:['Call In','HAHAKO (HA)',['Call Center','','Region B','CC','CC BANDUNG'],'CSR Region B Rendah',[70,70,70]],
+ r3a:['E-Care','HAHAKO (HA)',['E-Care','','Region C','EC','ECARE SEMARANG'],'CSR Region C Tinggi',[95,95,95]],
 }}};
-const regionRanks = localAskDrilldown(regionRoster,params({from:'2026-10-01',view:'ranking',topBy:'region',topLimit:'5'}));
-assert.deepEqual(regionRanks.topByRegion.map(group=>[group.region,group.rows[0].name]),[
- ['Region A','CSR Region A Tinggi'],['Region B','CSR Region B Tinggi'],
+const locationRanks = localAskDrilldown(regionRoster,params({from:'2026-10-01',view:'ranking',bottomBy:'location'}));
+assert.deepEqual(locationRanks.bottomByLocation.map(group=>[group.location,group.rows[0].name]),[
+ ['Area 1','CSR Region A Rendah'],['CC Bandung','CSR Region B Rendah'],['E-Care Semarang','CSR Region C Tinggi'],
 ]);
-assert.ok(!Object.hasOwn(regionRanks,'top'));
-assert.equal(regionRanks.topByRegion[0].rows.length,2);
+assert.equal(locationRanks.top[0].name,'CSR Region B Tinggi');
+assert.equal(locationRanks.bottomByLocation[0].rows.length,2);
 const dimensionQuery = params({
  view:'dimension',dimension:'attitude',level:'high',segment:'Walk In Mitra',sort:'score-desc',
  locationArea:'Area 1',locationRegions:JSON.stringify(['Region Fiktif']),

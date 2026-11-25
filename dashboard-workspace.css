@@ -597,6 +597,7 @@ html:has(.dw-wall-filters) {scroll-padding-top:72px}
   grid-area:kpis;
   display:grid;
   grid-template-columns:repeat(5,minmax(0,1fr));
+  align-items:stretch;
   gap:var(--canvas-executive-gap);
 }
 .canvas-report-tabs {grid-area:report;min-width:0}
@@ -652,8 +653,11 @@ html:has(.dw-wall-filters) {scroll-padding-top:72px}
 .canvas-kpi-group-cards {
   display:grid;
   grid-template-columns:repeat(var(--canvas-group-columns),minmax(0,1fr));
+  grid-auto-rows:1fr;
+  align-items:stretch;
   gap:var(--canvas-executive-gap);
 }
+.canvas-kpi-group-cards > .canvas-kpi {height:100%}
 .canvas-kpi {
   min-width:0;
   display:flex;
@@ -944,8 +948,8 @@ html:has(.dw-wall-filters) {scroll-padding-top:72px}
  .canvas-pass-segment-grid:not(.is-single),.canvas-pass-segment-grid.is-single .canvas-pass-metrics {grid-template-columns:1fr}
  .canvas-pass-donut-locations li {grid-template-columns:minmax(80px,1fr) minmax(20px,.7fr) auto}
 }
-.canvas-training-grid {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:14px;margin-top:9px}
-.canvas-training-grid > div {min-width:0}
+.canvas-training-grid {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);align-items:stretch;gap:14px;margin-top:9px}
+.canvas-training-grid > div {min-width:0;height:100%}
 .canvas-training-grid > div:first-child > p {margin-top:0}
 .canvas-training-grid .canvas-test-comparison {margin:0;padding:0 0 0 14px;border-top:0;border-inline-start:1px solid var(--canvas-line)}
 .canvas-ask-pass-details,.canvas-ask-pass-group {

@@ -594,8 +594,6 @@ function bindDashboardAskDrilldown(report) {
     rank.setAttribute('aria-busy','true');
     const limit = Number(rank.dataset.askRanking);
     const bottomBy = rank.dataset.askRankingBottom || '';
-    const topBy = rank.dataset.askRankingTop || '';
-    const topLimit = Number(rank.dataset.askRankingTopLimit) || limit;
     const priorMonth = rank.dataset.askRankingPrior;
     const priorShort = rank.dataset.askRankingPriorShort;
     const previousPosition = (previousRank,position,available,cutoff=limit)=>{
@@ -627,24 +625,24 @@ function bindDashboardAskDrilldown(report) {
           ${rankingTable(title+' · '+area.area,area.rows,area.comparison)}
         </details>`).join(''):'<p>Belum ada skor ASK GraPARI untuk area dalam cakupan ini.</p>'}</article>`;
     };
-    const regionTop = regions=>{
-      const title = 'Top '+topLimit+' per Region';
-      return `<article><h4>${title}</h4>${regions?.length?
-        regions.map(region=>`<details class="canvas-ask-rank-area">
-          <summary>${el(region.region)} <small>${count.format(region.total)} CSR dinilai</small></summary>
-          ${rankingTable(title+' · '+region.region,region.rows,region.comparison,topLimit)}
-        </details>`).join(''):'<p>Belum ada skor ASK per region dalam cakupan ini.</p>'}</article>`;
+    const locationBottom = locations=>{
+      const title = 'Bottom '+limit+' per Lokasi';
+      return `<article><h4>${title}</h4>${locations?.length?
+        locations.map(location=>`<details class="canvas-ask-rank-area">
+          <summary>${el(location.location)} <small>${count.format(location.total)} CSR dinilai</small></summary>
+          ${rankingTable(title+' · '+location.location,location.rows,location.comparison)}
+        </details>`).join(''):'<p>Belum ada skor ASK per lokasi dalam cakupan ini.</p>'}</article>`;
     };
     try {
-      const result = await request('ranking',{limit,bottomBy,topBy,topLimit,compare:priorMonth?'previous':''});
+      const result = await request('ranking',{limit,bottomBy,compare:priorMonth?'previous':''});
       if (!rank.isConnected) return;
       const rankingNote = priorMonth ? `<p class="canvas-ask-rank-note">${result?.comparison?.available
-        ? `${el(priorShort)} · “Baru masuk” berarti sebelumnya di luar daftar.${topBy?' Posisi Top '+topLimit+' dihitung di region masing-masing.':''}${bottomBy?' Posisi Bottom '+limit+' dihitung dari skor terendah di area masing-masing.':''}`
+        ? `${el(priorShort)} · “Baru masuk” berarti sebelumnya di luar daftar.${bottomBy==='location'?' Posisi Bottom '+limit+' dihitung dari skor terendah di tiap lokasi.':bottomBy?' Posisi Bottom '+limit+' dihitung dari skor terendah di area masing-masing.':''}`
         : `Pembanding ${el(priorMonth)} belum tersedia untuk cakupan ini.`}</p>` : '';
       rank.innerHTML = !result ? '<p>Daftar nama ASK belum diaktifkan di server lokal.</p>'
-        : result.total ? `${rankingNote}<div class="canvas-ask-rank-grid">${topBy
-          ? regionTop(result.topByRegion)
-          : rankingCard('Top '+limit,result.top,result.comparison)}${bottomBy
+        : result.total ? `${rankingNote}<div class="canvas-ask-rank-grid">${rankingCard('Top '+limit,result.top,result.comparison)}${bottomBy==='location'
+          ? locationBottom(result.bottomByLocation)
+          : bottomBy
           ? areaBottom(result.bottomByArea)
           : rankingCard('Bottom '+limit,result.bottom,result.comparison)}</div>`
         : '<p>Belum ada skor ASK untuk cakupan ini.</p>';

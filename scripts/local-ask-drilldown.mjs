@@ -105,7 +105,8 @@ export function localAskDrilldown(data, query) {
   const byName = (a, b) => collator.compare(a.name, b.name) || collator.compare(a.channel, b.channel) ||
     collator.compare(a.area, b.area) || collator.compare(a.region, b.region) || collator.compare(a.unit, b.unit);
   if (view === 'ranking') {
-    const limit = query.get('limit') === '10' || !channel ? 10 : 5;
+    const requestedLimit = query.get('limit');
+    const limit = requestedLimit === '5' ? 5 : requestedLimit === '10' ? 10 : !channel ? 10 : 5;
     let comparison;
     let previousRows = [];
     if (query.get('compare') === 'previous' && startMonth === endMonth) {
@@ -121,18 +122,29 @@ export function localAskDrilldown(data, query) {
       return current.toSorted(order).slice(0, take).map(({id,...row}) => comparison
         ? {...row, previousRank:previousRanks.get(id) ?? null} : row);
     };
-    const topByRegion = query.get('topBy') === 'region';
-    const topLimit = query.get('topLimit') === '5' ? 5 : limit;
-    const result = {total:rows.length, ...(topByRegion ? {} : {top:ranking(-1)}), ...(comparison ? {comparison} : {})};
-    if (topByRegion) {
-      const regions = [...new Set(rows.map(row=>row.region || 'Tanpa region'))].toSorted(collator.compare);
-      result.topByRegion = regions.map(region=>{
-        const matches = row => (row.region || 'Tanpa region') === region;
-        const current = rows.filter(matches);
-        const previous = previousRows.filter(matches);
-        return {region,total:current.length,rows:ranking(-1,current,previous,topLimit),
+    const result = {total:rows.length, top:ranking(-1), ...(comparison ? {comparison} : {})};
+    if (query.get('bottomBy') === 'location') {
+      const locationFor = row => {
+        if (row.channel==='GraPARI') return row.area || 'Area belum tercatat';
+        const unit = normalize(row.unit).replace(/[^a-z0-9]/g,'');
+        if (unit==='ccbandung') return 'CC Bandung';
+        if (unit==='ccsemarang') return 'CC Semarang';
+        if (unit==='ecarebandung') return 'E-Care Bandung';
+        if (unit==='ecaresemarang') return 'E-Care Semarang';
+        return row.unit || row.channel || 'Lokasi belum tercatat';
+      };
+      const preferred = ['Area 1','Area 2','Area 3','Area 4','CC Bandung','CC Semarang','E-Care Bandung','E-Care Semarang'];
+      const locations = [...new Set(rows.map(locationFor))].toSorted((a,b)=>{
+        const left = preferred.indexOf(a), right = preferred.indexOf(b);
+        return (left<0?Number.MAX_SAFE_INTEGER:left)-(right<0?Number.MAX_SAFE_INTEGER:right) || collator.compare(a,b);
+      });
+      const bottomByLocation = locations.map(location=>{
+        const current = rows.filter(row=>locationFor(row)===location);
+        const previous = previousRows.filter(row=>locationFor(row)===location);
+        return {location,total:current.length,rows:ranking(1,current,previous),
           ...(comparison ? {comparison:{...comparison,available:previous.length>0}} : {})};
       });
+      return {...result,bottomByLocation};
     }
     if (query.get('bottomBy') !== 'area') return {...result,bottom:ranking(1)};
     const bottomByArea = [1,2,3,4].flatMap(number=>{
