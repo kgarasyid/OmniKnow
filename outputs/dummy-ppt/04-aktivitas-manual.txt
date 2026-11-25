@@ -1,0 +1,12 @@
+DATA FIKTIF — masukkan lewat Add Activity, bukan impor CSV.
+Judul: DUMMY - Service Excellence Oktober 2026
+Kategori: Bootcamp
+Tanggal: 2026-10-20
+CTP: GraPARI
+Untuk segmentasi CTP, buat aktivitas terpisah untuk Contact Center dan E-Care; gunakan baris penilaian sesuai CTP dari file agen.
+
+Catatan/MoM: Simulasi latihan empati, penanganan keluhan, dan eskalasi.
+Action: Coaching agen dengan post-test <80, PIC Trainer Dummy, tenggat 2026-10-30.
+
+Daftar peserta (36 agen, lintas CTP untuk uji gabungan):
+DUMMY-PPT-001, DUMMY-PPT-002, DUMMY-PPT-003, DUMMY-PPT-004, DUMMY-PPT-005, DUMMY-PPT-006, DUMMY-PPT-007, DUMMY-PPT-008, DUMMY-PPT-009, DUMMY-PPT-010, DUMMY-PPT-011, DUMMY-PPT-012, DUMMY-PPT-013, DUMMY-PPT-014, DUMMY-PPT-015, DUMMY-PPT-016, DUMMY-PPT-017, DUMMY-PPT-018, DUMMY-PPT-019, DUMMY-PPT-020, DUMMY-PPT-021, DUMMY-PPT-022, DUMMY-PPT-023, DUMMY-PPT-024, DUMMY-PPT-025, DUMMY-PPT-026, DUMMY-PPT-027, DUMMY-PPT-028, DUMMY-PPT-029, DUMMY-PPT-030, DUMMY-PPT-031, DUMMY-PPT-032, DUMMY-PPT-033, DUMMY-PPT-034, DUMMY-PPT-035, DUMMY-PPT-036

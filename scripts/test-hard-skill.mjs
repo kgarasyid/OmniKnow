@@ -270,4 +270,56 @@ assert.deepEqual(nationalRanks.bottom.map(row=>row.attitude),[65,66,67,68,69,70,
 assert.deepEqual(nationalRanks.top[0],{name:'CSR Fiktif 24',score:86.6,channel:'GraPARI',area:'Area 1',
   region:'Region Fiktif',unit:'Unit Fiktif',attitude:89,skill:90,knowledge:80});
 assert.equal(localAskDrilldown(askRoster,params({view:'ranking',channel:'GraPARI'})).top.length,5);
+const octoberRoster = askRoster.placements['2026-10'];
+const priorRoster = Object.fromEntries(Object.entries(octoberRoster)
+  .filter(([id])=>id!=='CSR-FIKTIF-23')
+  .map(([id,placement])=>[id,id==='CSR-FIKTIF-24' ? [...placement.slice(0,3),'Nama Lama Fiktif',[65,90,80]] : placement]));
+const compareQuery = params({from:'2026-10-01',view:'ranking',compare:'previous'});
+const noPriorRanks = localAskDrilldown(askRoster,compareQuery);
+assert.deepEqual(noPriorRanks.comparison,{month:'2026-09',available:false});
+const ranksWithPrior = localAskDrilldown({
+  placements:{'2026-10':octoberRoster,'2026-09':priorRoster},
+},compareQuery);
+assert.deepEqual(ranksWithPrior.comparison,{month:'2026-09',available:true});
+assert.deepEqual(ranksWithPrior.top.slice(0,3).map(row=>row.previousRank),[24,null,1]);
+assert.deepEqual(ranksWithPrior.bottom.slice(0,3).map(row=>row.previousRank),[1,3,4]);
+assert.ok(!Object.hasOwn(ranksWithPrior.top[0],'id'));
+const areaRoster = {placements:{
+ '2026-10':{...octoberRoster,
+  a2:['Walk In Mitra','LOLOKO (LA)',['GraPARI','Area 2','Region Fiktif','U2','Unit Dua'],'CSR Area Dua',[35,45,55]],
+  a3:['Walk In Mitra','LOLOKO (LA)',['GraPARI','Area 3','Region Fiktif','U3','Unit Tiga'],'CSR Area Tiga',[55,65,75]],
+  cc:['Call In','LOLOKO (LA)',['Call Center','','Region Fiktif','CC','Unit Call Center'],'CSR Call Center',[20,30,40]],
+ },
+ '2026-09':{...priorRoster,a2:['Walk In Mitra','LOLOKO (LA)',['GraPARI','Area 1','Region Fiktif','U1','Unit Fiktif'],'CSR Area Dua',[25,35,45]]},
+}};
+const areaFilters = {from:'2026-10-01',view:'ranking',compare:'previous',bottomBy:'area'};
+const areaRanks = localAskDrilldown(areaRoster,params(areaFilters));
+assert.deepEqual(areaRanks.bottomByArea.map(group=>[group.area,group.rows[0].name]),[
+ ['Area 1','CSR Fiktif 0'],['Area 2','CSR Area Dua'],['Area 3','CSR Area Tiga'],
+]);
+assert.equal(areaRanks.bottomByArea[0].rows.length,10);
+assert.equal(areaRanks.bottomByArea[0].rows[0].previousRank,2);
+assert.equal(areaRanks.bottomByArea[1].comparison.available,false);
+assert.equal(areaRanks.bottomByArea[1].rows[0].previousRank,null);
+assert.ok(!Object.hasOwn(areaRanks,'bottom'));
+assert.deepEqual(localAskDrilldown(areaRoster,params(areaFilters,['Area 2'])).bottomByArea.map(group=>group.area),['Area 2']);
+const dimensionQuery = params({
+ view:'dimension',dimension:'attitude',level:'high',segment:'Walk In Mitra',sort:'score-desc',
+ locationArea:'Area 1',locationRegions:JSON.stringify(['Region Fiktif']),
+});
+const highNames = localAskDrilldown(askRoster,dimensionQuery);
+assert.equal(highNames.total,10);
+assert.deepEqual(highNames.rows.map(row=>row.dimensionScore),[89,88,87,86,85,84,83,82,81,80]);
+assert.ok(highNames.rows.every(row=>!Object.hasOwn(row,'id')));
+dimensionQuery.set('level','low');
+dimensionQuery.set('sort','name-asc');
+assert.equal(localAskDrilldown(askRoster,dimensionQuery).rows[0].name,'CSR Fiktif 0');
+dimensionQuery.set('locationRegions',JSON.stringify(['Region lain']));
+assert.equal(localAskDrilldown(askRoster,dimensionQuery).total,0);
+dimensionQuery.delete('locationRegions');
+dimensionQuery.set('level','high');
+dimensionQuery.set('from','2026-09-01');
+const assessments = localAskDrilldown({placements:{'2026-10':octoberRoster,'2026-09':priorRoster}},dimensionQuery);
+assert.equal(assessments.total,18);
+assert.deepEqual([...new Set(assessments.rows.map(row=>row.month))],['2026-09','2026-10']);
 console.log('PASS: multiple dashboard areas scope ASK drilldown, local learning and Bad Ticket consistently.');

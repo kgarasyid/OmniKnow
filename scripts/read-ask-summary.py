@@ -1,11 +1,13 @@
 """Read cached ASK scores and emit monthly aggregates without agent identifiers."""
-from decimal import Decimal
+from datetime import date, timedelta
+from decimal import Decimal, InvalidOperation
+from itertools import chain
 import json
 import math
 from pathlib import Path
 import re
 import sys
-from xlsx_rows import xlsx_records
+from xlsx_rows import xlsx_records, xlsx_rows, xlsx_sheet_names
 
 MONTHS = {"agustus": "08", "sept": "09", "okt": "10"}
 SOURCE_MONTHS = {
@@ -30,13 +32,8 @@ SOURCE_BUCKETS = ("tappingCurrent", "tappingPrior", "rollup", "other", "unclassi
 SEGMENTS = ("Walk In Mitra", "Walk In TOMO", "Call In", "E-Care")
 DIMENSIONS = ("attitude", "skill", "knowledge")
 REQUIRED = ("nik siad", "job", "ctp", "business model", "kuadran ask", "area", "regional", "unit id", "unit name", *DIMENSIONS)
-TALENT_POOL = {
-    "excellent performance": "excellent",
-    "good performance": "good",
-    "core performance": "core",
-    "growth potential": "growth",
-}
 WEIGHTS = (4, 3, 3)
+PRIORITY_PARAMETERS = {"etika pelayanan": 0.35, "holding time": 0.10, "edukasi layanan": 0.20}
 
 
 # Published findings from slides 4–5 of Monthly Update ASK, September 2026.
@@ -57,7 +54,7 @@ SEPTEMBER_FINDINGS = {
 
 def empty_group():
     return {"total": 0, "scoreSum": 0, "dimensionSums": [0, 0, 0],
-            "high": [0, 0, 0], "quadrants": {}, "talentPool": {}, "scoreBands": {}}
+            "high": [0, 0, 0], "quadrants": {}, "talentPool": {}}
 
 
 def location_keys(location):
@@ -65,28 +62,91 @@ def location_keys(location):
             for depth in (2, 3, 5))
 
 
+def tapping_month(value):
+    value = value.strip()
+    try:
+        if re.fullmatch(r"\d+(?:\.\d+)?", value):
+            return (date(1899, 12, 30) + timedelta(days=int(float(value)))).isoformat()[:7]
+        if re.match(r"^\d{4}-\d{2}-\d{2}", value):
+            return date.fromisoformat(value[:10]).isoformat()[:7]
+        numeric = re.fullmatch(r"(\d{1,2})[/-](\d{1,2})[/-](\d{4}|\d{2})", value)
+        words = re.fullmatch(r"(?:[^,]+,\s*)?(\d{1,2})[- ]([A-Za-z]+)[- ](\d{4}|\d{2})", value)
+        if numeric or words:
+            day, month, year = (numeric or words).groups()
+            number = int(month) if numeric else SOURCE_MONTHS.get(month.casefold(), 0)
+            return date(int(year) + (2000 if len(year) == 2 else 0), number, int(day)).isoformat()[:7]
+    except (ValueError, OverflowError):
+        pass
+    return ""
+
+
+def tapping_parameters(path, period, roster):
+    totals = {}
+    for sheet in xlsx_sheet_names(path):
+        key = sheet.strip().casefold()
+        if re.match(r"^sq mitra(?:\s*\(|$)", key):
+            channel, dates = "GraPARI", ("tanggal interaksi",)
+        elif key == "ecare":
+            channel, dates = "E-Care", ("tanggal penilaian",)
+        elif key in {"call center", "callcenter", "cc"}:
+            channel, dates = "Call Center", ("tgl penilaian", "tanggal penilaian", "tanggal")
+        else:
+            continue
+        rows = iter(xlsx_rows(path, sheet))
+        initial = [next(rows, {}) for _ in range(3)]
+        headers = [{column: value.casefold() for column, value in row.items()} for row in initial]
+        by_name = lambda name: [column for row in headers for column, label in row.items() if label == name]
+        params = [(label, columns[0], weight) for label, weight in PRIORITY_PARAMETERS.items()
+                  if (columns := by_name(label))]
+        ids = [column for label in ("nik siad seharusnya", "nik siad (seharusnya)", "nik siad",
+                                    "nik csr", "nik csdm", "nik") for column in by_name(label)]
+        dates = next((cols for name in dates if (cols := by_name(name))), [])
+        if not params or not ids or not dates:
+            continue
+        for row in chain(initial, rows):
+            if tapping_month(row.get(dates[0], "")) != period:
+                continue
+            location = next((match for column in ids if (match := roster.get(row.get(column, "")))
+                             and match[0] == channel), None)
+            if not location:
+                continue
+            for label, column, weight in params:
+                try:
+                    score = float(row.get(column, ""))
+                except ValueError:
+                    continue
+                if not 0 <= score <= weight:
+                    continue
+                for key in location_keys(location):
+                    metric = totals.setdefault(key, {}).setdefault(label, {"count": 0, "gapSum": 0})
+                    metric["count"] += 1
+                    metric["gapSum"] += (weight - score) / weight
+    return totals
+
+
 def talent_pool_band(row, weighted_score):
-    if "talent pool" in row:
-        return TALENT_POOL.get(row["talent pool"].casefold(), "unclassified")
-    # Older exports can contain the dimension scores without a Talent Pool column.
+    final_score = weighted_score
+    if "skor akhir" in row:
+        try:
+            final_score = Decimal(row["skor akhir"].replace(",", "."))
+        except InvalidOperation:
+            return "unclassified"
+        if not final_score.is_finite():
+            return "unclassified"
+    # Older exports without Skor Akhir use the weighted scores.
     return next((band for minimum, band in ((80, "excellent"), (70, "good"), (60, "core"))
-                 if weighted_score >= minimum), "growth")
+                 if final_score >= minimum), "growth")
 
 
 def count_latest_bands(placements):
     talent_groups, talent_locations = {}, {}
-    score_groups, score_locations = {}, {}
-    for segment, _, location, _, _, talent, score_band in placements:
-        keys = tuple(location_keys(location))
-        for groups, locations, band in ((talent_groups, talent_locations, talent),
-                                        (score_groups, score_locations, score_band)):
-            counts = groups.setdefault(segment, {})
-            counts[band] = counts.get(band, 0) + 1
-            for key in keys:
-                counts = locations.setdefault(key, {}).setdefault(segment, {})
-                counts[band] = counts.get(band, 0) + 1
-    return {"latestTalentPool": talent_groups, "latestLocationTalentPool": talent_locations,
-            "latestScoreBands": score_groups, "latestLocationScoreBands": score_locations}
+    for segment, _, location, _, _, talent in placements:
+        counts = talent_groups.setdefault(segment, {})
+        counts[talent] = counts.get(talent, 0) + 1
+        for key in location_keys(location):
+            counts = talent_locations.setdefault(key, {}).setdefault(segment, {})
+            counts[talent] = counts.get(talent, 0) + 1
+    return {"latestTalentPool": talent_groups, "latestLocationTalentPool": talent_locations}
 
 
 def assessment_source(note, year, month):
@@ -134,12 +194,13 @@ def summarize(path, period, include_details):
     required = (*REQUIRED, "employee name") if include_details else REQUIRED
     suffixes = ["", *(f" {alias}" for alias, number in SOURCE_MONTHS.items() if number == month)]
     tryout_columns = tuple(f"to {slot}{suffix}" for slot in (1, 2, 3) for suffix in suffixes)
-    optional = ("talent pool", "notes qa", "nilai to", *tryout_columns)
+    optional = ("skor akhir", "notes qa", "nilai to", *tryout_columns)
     groups = {name: empty_group() for name in SEGMENTS}
     csr_counts = dict.fromkeys((*SEGMENTS, "GraPARI model belum tercatat", "CTP belum terpetakan"), 0)
     excluded = incomplete = unassigned = 0
     seen = set()
     placements = {}
+    roster = {}
     locations = {}
     csr_locations = {}
     tryout_scores = {}
@@ -173,6 +234,8 @@ def summarize(path, period, include_details):
         location = (channel, area, region, field("unit id"), unit_name)
         mapped_ctp = ctp in {"grapari", "call center", "ecare", "e-care"}
         scoped_keys = list(location_keys(location)) if mapped_ctp else []
+        if scoped_keys:
+            roster[agent] = location
         for key in scoped_keys:
             bucket = csr_locations.setdefault(key, {})
             bucket[csr_bucket] = bucket.get(csr_bucket, 0) + 1
@@ -204,9 +267,8 @@ def summarize(path, period, include_details):
             label = "BELUM TERSEDIA"
         weighted_score = sum(Decimal(field(key)) * weight for key, weight in zip(DIMENSIONS, WEIGHTS)) / 10
         talent = talent_pool_band(row, weighted_score)
-        score_band = band_for_score(weighted_score)
         placements[agent] = (segment, label, location, field("employee name") if include_details else "",
-                             scores if include_details else None, talent, score_band)
+                             scores if include_details else None, talent)
         buckets = [groups[segment]]
         for key in scoped_keys:
             by_segment = locations.setdefault(key, {})
@@ -224,9 +286,9 @@ def summarize(path, period, include_details):
                 group["high"][index] += score >= 80
             group["quadrants"][label] = group["quadrants"].get(label, 0) + 1
             group["talentPool"][talent] = group["talentPool"].get(talent, 0) + 1
-            group["scoreBands"][score_band] = group["scoreBands"].get(score_band, 0) + 1
     return {"groups": groups, "locations": locations, "csrCounts": csr_counts, "csrLocations": csr_locations,
-            "tryoutScores": tryout_scores, "tryoutLocations": tryout_locations, "excluded": excluded,
+            "tryoutScores": tryout_scores, "tryoutLocations": tryout_locations,
+            "tappingParameters": tapping_parameters(path, period, roster), "excluded": excluded,
             "incomplete": incomplete, "unassigned": unassigned}, placements
 
 

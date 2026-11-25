@@ -1,3 +1,5 @@
+Local development runs on loopback with fictional demo data. Deployment access uses Microsoft Entra. See [AUTH-SETUP.md](docs/AUTH-SETUP.md).
+
 # OmniKnow — complete editable developer package
 
 **Current handoff:** Start with [DEVELOPER-HANDOFF.md](docs/DEVELOPER-HANDOFF.md). This package includes the latest Executive Summary, dated reporting, MoM comparisons, detailed VoC, all application source, tests and build scripts. `SOURCE-MANIFEST.json` in the ZIP identifies the source revision and file checksums.

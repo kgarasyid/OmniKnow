@@ -1,6 +1,9 @@
 import { reportAreaFilter } from './report-area.mjs';
 
 const channels = new Set(['GraPARI', 'Call Center', 'E-Care']);
+const dimensions = ['attitude', 'skill', 'knowledge'];
+const segments = new Set(['Walk In Mitra','Walk In TOMO','Call In','E-Care','GraPARI model belum tercatat']);
+const nameOrders = new Set(['name-asc','name-desc','score-asc','score-desc']);
 const pageSize = 20;
 const collator = new Intl.Collator('id', {numeric:true, sensitivity:'base'});
 const isMonth = value => /^\d{4}-(?:0[1-9]|1[0-2])$/.test(value ?? '');
@@ -16,7 +19,7 @@ function monthsInScope(placements, from, to) {
 function latestPlacements(placements, months) {
   const latest = new Map();
   for (const month of months) {
-    for (const [id, placement] of Object.entries(placements[month])) latest.set(id, {placement, month});
+    for (const [id, placement] of Object.entries(placements[month])) latest.set(id, {id, placement, month});
   }
   return Array.from(latest.values());
 }
@@ -45,11 +48,24 @@ export function localAskDrilldown(data, query) {
   const view = query.get('view');
   const channel = query.get('channel');
   const quadrant = query.get('quadrant');
+  const dimension = dimensions.indexOf(query.get('dimension'));
+  const level = query.get('level');
+  const segment = query.get('segment');
+  const sort = query.get('sort') ?? 'name-asc';
   const offsetValue = query.get('offset') ?? '0';
   const offset = Number(offsetValue);
   if (!isDay(from) || !isDay(to) || from > to || (channel && !channels.has(channel)) ||
-      !['ranking', 'quadrant'].includes(view) ||
-      (view === 'quadrant' && (!isQuadrant(quadrant) || !/^\d+$/.test(offsetValue) || !Number.isSafeInteger(offset)))) return null;
+      !['ranking', 'quadrant', 'dimension'].includes(view) ||
+      (view !== 'ranking' && (!/^\d+$/.test(offsetValue) || !Number.isSafeInteger(offset) || !nameOrders.has(sort))) ||
+      (view === 'quadrant' && !isQuadrant(quadrant)) ||
+      (view === 'dimension' && (dimension<0 || !['high','low'].includes(level) || (segment && !segments.has(segment))))) return null;
+  let locationRegions = [];
+  if (view==='dimension' && query.has('locationRegions')) {
+    try { locationRegions = JSON.parse(query.get('locationRegions')); } catch { return null; }
+    if (!Array.isArray(locationRegions) || !locationRegions.every(item=>typeof item==='string')) return null;
+  }
+  const locationRegionSet = new Set(locationRegions.map(normalize));
+  const locationArea = view==='dimension' ? normalize(query.get('locationArea')) : '';
   const startMonth = from.slice(0, 7);
   const endMonth = to.slice(0, 7);
   const monthNumber = value => Number(value.slice(0, 4)) * 12 + Number(value.slice(5));
@@ -61,10 +77,13 @@ export function localAskDrilldown(data, query) {
   const unit = normalize(query.get('unit'));
   const unitId = query.get('unitId')?.trim();
   const geoRegions = new Set(query.getAll('geoRegion').map(normalize).filter(Boolean));
-  const nameQuery = view === 'quadrant' ? normalize(query.get('q')) : '';
+  const nameQuery = view !== 'ranking' ? normalize(query.get('q')) : '';
   const months = monthsInScope(data.placements, startMonth, endMonth);
-  const rows = latestPlacements(data.placements, months).flatMap(({
-    placement:[, label, [rowChannel, rowArea, rowRegion, rowUnitId, rowUnit], name, scores],
+  const rowsForMonths = selectedMonths => (view==='dimension'
+    ? selectedMonths.flatMap(month=>Object.entries(data.placements[month]).map(([id,placement])=>({id,placement,month})))
+    : latestPlacements(data.placements, selectedMonths)).flatMap(({
+    id,month,
+    placement:[rowSegment, label, [rowChannel, rowArea, rowRegion, rowUnitId, rowUnit], name, scores],
   }) => {
     if ((channel && channel !== rowChannel) || !reportArea.matches({channel:rowChannel,area:rowArea}) ||
         (area && area !== normalize(rowArea)) ||
@@ -72,19 +91,56 @@ export function localAskDrilldown(data, query) {
         (unitId ? unitId !== String(rowUnitId ?? '').trim() : unit && unit !== normalize(rowUnit)) ||
         (view === 'quadrant' && label !== quadrant) || (nameQuery && !normalize(name).includes(nameQuery)) ||
         !Array.isArray(scores) || scores.length !== 3 || !scores.every(score => Number.isFinite(score) && score >= 0 && score <= 100)) return [];
+    if (view==='dimension' && ((segment && rowSegment!==segment) || (locationArea && locationArea!==normalize(rowArea)) ||
+        (locationRegionSet.size && !locationRegionSet.has(normalize(rowRegion))) ||
+        (scores[dimension]>=80)!==(level==='high'))) return [];
     const [attitude, skill, knowledge] = scores;
     // Preserve tied scores despite floating-point differences in the weighted sum.
     const score = Number(((attitude * 4 + skill * 3 + knowledge * 3) / 10).toFixed(12));
     const row = {name:String(name ?? '').trim() || '—', score, channel:rowChannel, area:rowArea, region:rowRegion, unit:rowUnit};
-    return [view === 'ranking' ? {...row, attitude, skill, knowledge} : row];
+    if (view==='dimension') return [{...row,id,month,dimensionScore:scores[dimension]}];
+    return [view === 'ranking' ? {...row,id,attitude,skill,knowledge} : row];
   });
+  const rows = rowsForMonths(months);
   const byName = (a, b) => collator.compare(a.name, b.name) || collator.compare(a.channel, b.channel) ||
     collator.compare(a.area, b.area) || collator.compare(a.region, b.region) || collator.compare(a.unit, b.unit);
   if (view === 'ranking') {
     const limit = query.get('limit') === '10' || !channel ? 10 : 5;
-    const top = rows.toSorted((a, b) => b.score - a.score || byName(a, b)).slice(0, limit);
-    const bottom = rows.toSorted((a, b) => a.score - b.score || byName(a, b)).slice(0, limit);
-    return {total:rows.length, top, bottom};
+    let comparison;
+    let previousRows = [];
+    if (query.get('compare') === 'previous' && startMonth === endMonth) {
+      const previousDate = new Date(startMonth + '-01T00:00:00Z');
+      previousDate.setUTCMonth(previousDate.getUTCMonth() - 1);
+      const month = previousDate.toISOString().slice(0, 7);
+      previousRows = rowsForMonths(monthsInScope(data.placements, month, month));
+      comparison = {month, available:previousRows.length > 0};
+    }
+    const ranking = (direction, current = rows, previous = previousRows) => {
+      const order = (a, b) => direction * (a.score - b.score) || byName(a, b) || collator.compare(a.id,b.id);
+      const previousRanks = new Map(previous.toSorted(order).map(({id},index)=>[id,index+1]));
+      return current.toSorted(order).slice(0, limit).map(({id,...row}) => comparison
+        ? {...row, previousRank:previousRanks.get(id) ?? null} : row);
+    };
+    const result = {total:rows.length, top:ranking(-1), ...(comparison ? {comparison} : {})};
+    if (query.get('bottomBy') !== 'area') return {...result,bottom:ranking(1)};
+    const bottomByArea = [1,2,3,4].flatMap(number=>{
+      const label = 'Area '+number;
+      const matches = row=>row.channel==='GraPARI' && normalize(row.area)===normalize(label);
+      const current = rows.filter(matches);
+      if (!current.length) return [];
+      const previous = previousRows.filter(matches);
+      return [{area:label, total:current.length, rows:ranking(1,current,previous),
+        ...(comparison ? {comparison:{...comparison,available:previous.length>0}} : {})}];
+    });
+    return {...result,bottomByArea};
   }
-  return {total:rows.length, offset, rows:rows.sort(byName).slice(offset, offset + pageSize)};
+  const direction = sort.endsWith('-desc') ? -1 : 1;
+  const byScore = sort.startsWith('score-');
+  const sortRows = (a,b)=>{
+    const scoreA = view==='dimension' ? a.dimensionScore : a.score;
+    const scoreB = view==='dimension' ? b.dimensionScore : b.score;
+    const order = byScore ? direction*(scoreA-scoreB) || byName(a,b) : direction*byName(a,b);
+    return order || collator.compare(a.month ?? '',b.month ?? '') || collator.compare(a.id ?? '',b.id ?? '');
+  };
+  return {total:rows.length,offset,rows:rows.sort(sortRows).slice(offset,offset+pageSize).map(({id,...row})=>row)};
 }

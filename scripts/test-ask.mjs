@@ -98,7 +98,7 @@ const missingComparison = run('localAskSlideTwo()');
 assert.match(missingComparison,/Pembanding belum tersedia/);
 vm.runInContext("localAskMonth='2026-02'",ctx);
 const monthlyComparison = run('localAskSlideTwo()');
-assert.match(monthlyComparison,/Attitude lulus<\/span><strong>0 \(0%\)<\/strong>/);
+assert.match(monthlyComparison,/High Attitude<\/span><strong>0 \(0%\)<\/strong>/);
 assert.match(monthlyComparison,/Sebelumnya 2 \(50%\) dari 4 CSR/);
 assert.match(monthlyComparison,/Turun 50.0 pp/);
 vm.runInContext("localAskWindow='ytd'",ctx);

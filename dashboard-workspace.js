@@ -21,6 +21,8 @@ const DASHBOARD_SITES = [
   {name:'Site 2',city:'Semarang',region:'Jateng',aliases:['Jawa Tengah','Jateng-DIY','Contact Center 2']},
 ];
 let dashboardReportAreas = null;
+const dashboardAreasByChannel = new Map();
+const dashboardAreaChoices = () => ctp==='GraPARI' ? DASHBOARD_AREAS.slice(0,4) : DASHBOARD_AREAS;
 const dashboardHasLocalMap = () => ['127.0.0.1', 'localhost', '[::1]'].includes(globalThis.location?.hostname);
 
 let dashboardTab=0,dashboardSub={2:'Hardskill',3:'ACS Booster',4:'Pre Test',5:'Agents'},dashboardGroup='Area',dashboardRawQuery='',dashboardRawPage=0;
@@ -30,11 +32,13 @@ const DASHBOARD_TRIAL_DEFAULT_MONTH = '2026-10';
 let dashboardTrialWindow = 'month';
 let dashboardTrialRangeStart = DASHBOARD_TRIAL_DEFAULT_START;
 let dashboardAskReportOpen = true;
-let dashboardNationalAskReportOpen = false;
+let dashboardNationalAskReportOpen = true;
+let dashboardReportTab = 'ask';
 const dashboardAskPassDisclosures = new Map();
 const dashboardOpenKpis = new Set();
 const dashboardLearningOpen = new Set();
 let dashboardAskDrillState = null;
+let dashboardAskQuadrantState = null;
 const DASH_PROGRAMS=['Hardskill','Soft skill','ACS Booster','Bad Ticket','Reguler Try Out'];
 function dashboardProgramRows(xs,program){
   const linked=state.activities.filter(a=>a.category===program);
@@ -118,15 +122,16 @@ function dashboardAreaControl() {
     </summary>
     <fieldset class="dw-area-options" aria-label="Pilih area atau channel">
      <label><input id="dashboardAreaAll" type="checkbox" data-dashboard-area="all"${dashboardReportAreas===null?' checked':''}> Pilih semua</label>
-     ${DASHBOARD_AREAS.map((value,index)=>`<label><input id="dashboardAreaChoice${index}" type="checkbox" data-dashboard-area="${el(value)}"${checked(value)?' checked':''}> ${el(value)}</label>`).join('')}
+     ${dashboardAreaChoices().map((value,index)=>`<label><input id="dashboardAreaChoice${index}" type="checkbox" data-dashboard-area="${el(value)}"${checked(value)?' checked':''}> ${el(value)}</label>`).join('')}
     </fieldset>
    </details>
   </div>`;
 }
 
 function setDashboardReportAreas(selected) {
-  const next = DASHBOARD_AREAS.filter(value=>selected.includes(value));
-  dashboardReportAreas = next.length===DASHBOARD_AREAS.length ? null : next;
+  const choices = dashboardAreaChoices();
+  const next = choices.filter(value=>selected.includes(value));
+  dashboardReportAreas = next.length===choices.length ? null : next;
   ctpScope = 'All locations';
   area = 'All Areas';
   region = 'All Regions';
@@ -136,7 +141,9 @@ function setDashboardReportAreas(selected) {
 
 function selectDashboardChannel(channel) {
   if (ctp !== channel) {
+    if (!dashboardSiteChannel()) dashboardAreasByChannel.set(ctp,dashboardReportAreas);
     ctp = channel;
+    dashboardReportAreas = dashboardAreasByChannel.get(channel) ?? null;
     area = 'All Areas';
     const locations = dashboardSiteChannel() ? [] : dashboardWorkbookUnits();
     if (!locations.some(([,parts])=>parts[1]===ctpScope)) ctpScope = 'All locations';
@@ -144,6 +151,7 @@ function selectDashboardChannel(channel) {
       (ctpScope==='All locations' || parts[1]===ctpScope));
     if (!inArea.some(([,parts])=>parts[2]===region)) region = 'All Regions';
     if (!inArea.some(([key,parts])=>key===dashboardUnit && (region==='All Regions' || parts[2]===region))) dashboardUnit = '';
+    dashboardAskDrillState = dashboardAskQuadrantState = null;
   }
   dashboardTab = 0;
   dashboardRawQuery = '';
@@ -218,6 +226,35 @@ function applyDashboardMapScope({mapArea='',mapRegion='',unit='',unitId=''}) {
   dashboardRawPage = 0;
 }
 
+function applyDashboardNationalMapTarget(channel,target) {
+  const destination = DASH_CHANNELS.find(item=>item.mapView && item.label===channel);
+  if (!destination) return false;
+  if (channel==='GraPARI') {
+    if (!DASHBOARD_AREAS.slice(0,4).includes(target)) return false;
+    selectDashboardChannel(destination.value);
+    setDashboardReportAreas([target]);
+  } else {
+    if (!DASHBOARD_SITES.some(site=>site.name===target)) return false;
+    selectDashboardChannel(destination.value);
+    const site = dashboardSiteUnits(channel).find(item=>item.name===target);
+    const [, , mapRegion,unitId,unit] = JSON.parse(site.key);
+    applyDashboardMapScope({mapRegion,unitId,unit});
+  }
+  return true;
+}
+
+function dashboardNationalMapPanel(month,period) {
+  const params = new URLSearchParams({view:'national',month});
+  return `<section class="canvas-national-map canvas-learning-report" aria-labelledby="canvas-national-map-title">
+   <header class="canvas-national-map-heading">
+    <h2 class="canvas-learning-title" id="canvas-national-map-title">Peta Sebaran CTP<small>${el(period)}</small></h2>
+   </header>
+   <div class="canvas-learning-body">
+    <iframe class="dw-grapari-map" src="/local-grapari-map?${el(params.toString())}" title="Peta Sebaran CTP Nasional"></iframe>
+   </div>
+  </section>`;
+}
+
 function dashboardLocationLabel() {
   const siteChannel = dashboardSiteChannel();
   if (siteChannel) {
@@ -241,11 +278,10 @@ const dashboardTrialShortMonth = new Intl.DateTimeFormat('id-ID',{month:'short',
 const dashboardTrialJakartaMonth = new Intl.DateTimeFormat('en-CA',{year:'numeric',month:'2-digit',timeZone:'Asia/Jakarta'});
 const dashboardTrialMonthDate = month=>new Date(month+'-01T00:00:00Z');
 const dashboardTrialFormatMonth = month=>dashboardTrialMonthFormat.format(dashboardTrialMonthDate(month));
+const dashboardShortComparison = month=>`vs ${dashboardTrialShortMonth.format(dashboardTrialMonthDate(month))} ${month.slice(0,4)}`;
 
 function dashboardCompareMonths(current,previous) {
-  const month = key=>dashboardTrialShortMonth.format(dashboardTrialMonthDate(key));
-  const year = key=>key.slice(0,4);
-  return `${month(current)}${year(current)===year(previous)?'':` ${year(current)}`} vs ${month(previous)} ${year(previous)}`;
+  return `${dashboardTrialFormatMonth(current)} vs ${dashboardTrialFormatMonth(previous)}`;
 }
 
 function dashboardTrialCurrentMonth(date=new Date()) {
@@ -391,7 +427,7 @@ async function loadLocalLearningReport() {
   if (!document.querySelector('.ctp-executive') || localLearningQuery()!==query) return;
   refreshDashboardTrialYtd();
   const focus = document.activeElement?.id;
-  const openDialog = document.querySelector('.canvas-dialog[open]')?.id;
+  const openDialog = document.querySelector('.canvas-dialog[open]:not(#canvas-ask-drill)')?.id;
   renderDashboardFilters(focus);
   if (openDialog) {
     const dialog = document.getElementById(openDialog);
@@ -476,9 +512,10 @@ function dashboardWorkspace() {
 }
 function bindDashboardMap() {
   const frame = document.querySelector('.dw-grapari-map');
-  frame?.addEventListener('load', () => {
+  function resizeMap() {
     const content = frame.contentDocument?.querySelector('main');
     if (!content) return;
+    frame.removeEventListener('load',resizeMap);
     const observer = new ResizeObserver(() => {
       if (!frame.isConnected) {
         observer.disconnect();
@@ -487,14 +524,26 @@ function bindDashboardMap() {
       frame.style.height = Math.ceil(content.getBoundingClientRect().height + 2) + 'px';
     });
     observer.observe(content);
-  }, {once:true});
+  }
+  frame?.addEventListener('load',resizeMap);
+  if (frame) resizeMap();
 }
 
 globalThis.window?.addEventListener('message',event=>{
   const frame = document.querySelector('.dw-grapari-map');
   const data = event.data;
-  if (!frame || event.origin!==location.origin || event.source!==frame.contentWindow ||
-      data?.type!=='omniknow-map-scope' || data.channel!==dashboardChannelLabel() ||
+  if (!frame || event.origin!==location.origin || event.source!==frame.contentWindow) return;
+  if (data?.type==='omniknow-national-map-open') {
+    if (ctp!=='All CTPs' || !frame.closest('.canvas-national-map') ||
+        !applyDashboardNationalMapTarget(data.channel,data.target)) return;
+    render();
+    const heading = document.getElementById('dashboard-map-distribution-title') ||
+      document.querySelector('.dw-tabs [aria-current="page"]');
+    heading?.focus({preventScroll:true});
+    heading?.scrollIntoView({block:'start'});
+    return;
+  }
+  if (data?.type!=='omniknow-map-scope' || data.channel!==dashboardChannelLabel() ||
       !['mapArea','mapRegion','unit','unitId'].every(key=>typeof data[key]==='string')) return;
   const before = JSON.stringify([ctpScope,region,dashboardUnit]);
   applyDashboardMapScope(data);
@@ -508,7 +557,14 @@ globalThis.window?.addEventListener('message',event=>{
 
 function bindDashboardAskDrilldown(report) {
   if (!report) return;
-  const scope = new URLSearchParams(localLearningQuery());
+  const dimensionScope = new URLSearchParams(localLearningQuery());
+  const localUnit = dashboardLocalUnit();
+  if (localUnit) {
+    for (const [key,value] of [['channel',localUnit[0]],['area',localUnit[1]],['region',localUnit[2]]]) {
+      if (value && !dimensionScope.has(key)) dimensionScope.set(key,value);
+    }
+  }
+  const scope = new URLSearchParams(dimensionScope);
   if (report.dataset.askDetailMonth) {
     const month = report.dataset.askDetailMonth;
     const lastDay = dashboardTrialMonthDate(month);
@@ -516,19 +572,13 @@ function bindDashboardAskDrilldown(report) {
     scope.set('from',month+'-01');
     scope.set('to',lastDay.toISOString().slice(0,10));
   }
-  const localUnit = dashboardLocalUnit();
-  if (localUnit) {
-    for (const [key,value] of [['channel',localUnit[0]],['area',localUnit[1]],['region',localUnit[2]]]) {
-      if (value && !scope.has(key)) scope.set(key,value);
-    }
-  }
-  const scopeKey = scope.toString();
+  const scopeKey = `${dimensionScope}|${scope}`;
   const score = new Intl.NumberFormat('id-ID',{maximumFractionDigits:1});
   const count = new Intl.NumberFormat('id-ID');
   const unitLabel = row=>[row.unit,row.area || row.region || row.channel].filter(Boolean).join(' · ') || '—';
   const scoreLabel = value=>Number.isFinite(value) ? score.format(value) : '—';
   async function request(view,filters={}) {
-    const query = new URLSearchParams(scope);
+    const query = new URLSearchParams(view==='dimension'?dimensionScope:scope);
     query.set('view',view);
     for (const [key,value] of Object.entries(filters)) if (value!=='') query.set(key,value);
     const response = await fetch('/api/local-ask-drilldown?'+query);
@@ -542,24 +592,49 @@ function bindDashboardAskDrilldown(report) {
     if (!rank || !report.open || rank.dataset.loaded) return;
     rank.dataset.loaded = 'true';
     rank.setAttribute('aria-busy','true');
-    const limit = rank.dataset.askRanking;
-    const rankingTable = (title,rows)=>`<article><h4>${title}</h4>
-      <table class="canvas-ask-rank-table" aria-label="${title}">
+    const limit = Number(rank.dataset.askRanking);
+    const bottomBy = rank.dataset.askRankingBottom || '';
+    const priorMonth = rank.dataset.askRankingPrior;
+    const priorShort = rank.dataset.askRankingPriorShort;
+    const previousPosition = (previousRank,position,available)=>{
+      if (!available) return '—';
+      if (previousRank==null) return '<small class="canvas-ask-rank-move">Tanpa skor</small>';
+      const change = previousRank-position;
+      const movement = previousRank>limit ? 'Baru masuk' : change>0 ? '↑ '+change : change<0 ? '↓ '+Math.abs(change) : '→ Tetap';
+      return `<strong>#${previousRank}</strong><small class="canvas-ask-rank-move">${movement}</small>`;
+    };
+    const rankingTable = (title,rows,comparison)=>`<table class="canvas-ask-rank-table" aria-label="${el(title)}">
        <thead><tr><th scope="col">No.</th><th scope="col">Nama CSR</th><th scope="col">Area</th><th scope="col">Unit</th>
         <th scope="col"><abbr title="Attitude">A</abbr></th><th scope="col"><abbr title="Skill">S</abbr></th>
-        <th scope="col"><abbr title="Knowledge">K</abbr></th><th scope="col">ASK</th></tr></thead>
+        <th scope="col"><abbr title="Knowledge">K</abbr></th><th scope="col" class="canvas-ask-rank-score">ASK</th>
+        ${priorMonth?`<th scope="col" class="canvas-ask-rank-prior"><abbr title="Peringkat ${el(priorMonth)}">${el(priorShort)}</abbr></th>`:''}</tr></thead>
        <tbody>${rows.map((row,index)=>`<tr><td>${index+1}</td><th scope="row">${el(row.name)}
         <small class="canvas-ask-rank-location">${el([row.area || row.channel,row.unit].filter(Boolean).join(' · '))}</small></th>
         <td>${el(row.area || row.channel || '—')}</td><td>${el(row.unit || '—')}</td>
         <td>${scoreLabel(row.attitude)}</td><td>${scoreLabel(row.skill)}</td>
-        <td>${scoreLabel(row.knowledge)}</td><td><strong>${scoreLabel(row.score)}</strong></td></tr>`).join('')}
+        <td>${scoreLabel(row.knowledge)}</td><td class="canvas-ask-rank-score"><strong>${scoreLabel(row.score)}</strong></td>
+        ${priorMonth?`<td class="canvas-ask-rank-prior">${previousPosition(row.previousRank,index+1,comparison?.available)}</td>`:''}</tr>`).join('')}
        </tbody>
-      </table></article>`;
+      </table>`;
+    const rankingCard = (title,rows,comparison)=>`<article><h4>${el(title)}</h4>${rankingTable(title,rows,comparison)}</article>`;
+    const areaBottom = areas=>{
+      const title = 'Bottom '+limit+' per Area GraPARI';
+      return `<article><h4>${title}</h4>${areas?.length?
+        areas.map(area=>`<details class="canvas-ask-rank-area"${areas.length===1?' open':''}>
+          <summary>${el(area.area)} <small>${count.format(area.total)} CSR dinilai</small></summary>
+          ${rankingTable(title+' · '+area.area,area.rows,area.comparison)}
+        </details>`).join(''):'<p>Belum ada skor ASK GraPARI untuk area dalam cakupan ini.</p>'}</article>`;
+    };
     try {
-      const result = await request('ranking',{limit});
+      const result = await request('ranking',{limit,bottomBy,compare:priorMonth?'previous':''});
       if (!rank.isConnected) return;
+      const rankingNote = priorMonth ? `<p class="canvas-ask-rank-note">${result?.comparison?.available
+        ? `${el(priorShort)} · “Baru masuk” berarti sebelumnya di luar daftar. Posisi Bottom ${limit} dihitung dari skor terendah${bottomBy?' di area masing-masing':''}.`
+        : `Pembanding ${el(priorMonth)} belum tersedia untuk cakupan ini.`}</p>` : '';
       rank.innerHTML = !result ? '<p>Daftar nama ASK belum diaktifkan di server lokal.</p>'
-        : result.total ? `<div class="canvas-ask-rank-grid">${rankingTable('Top '+limit,result.top)}${rankingTable('Bottom '+limit,result.bottom)}</div>`
+        : result.total ? `${rankingNote}<div class="canvas-ask-rank-grid">${rankingCard('Top '+limit,result.top,result.comparison)}${bottomBy
+          ? areaBottom(result.bottomByArea)
+          : rankingCard('Bottom '+limit,result.bottom,result.comparison)}</div>`
         : '<p>Belum ada skor ASK untuk cakupan ini.</p>';
     } catch {
       delete rank.dataset.loaded;
@@ -571,70 +646,130 @@ function bindDashboardAskDrilldown(report) {
   report.addEventListener('toggle',loadRanking);
   loadRanking();
 
+  function bindNamesList(panel) {
+    let state;
+    const form = panel.querySelector('.canvas-ask-drill-search');
+    const search = form.elements.namedItem('q');
+    const order = form.elements.namedItem('sort');
+    const rows = panel.querySelector('.canvas-ask-drill-rows');
+    const previous = panel.querySelector('[data-ask-page="previous"]');
+    const next = panel.querySelector('[data-ask-page="next"]');
+    const status = panel.querySelector('.canvas-ask-drill-pager [role="status"]');
+    const pageSize = 20;
+    let requestId = 0;
+
+    async function loadNames() {
+      const id = ++requestId;
+      const {code,offset,query,sort,filters} = state;
+      const isDimension = Boolean(filters);
+      const multiMonth = isDimension && dimensionScope.get('from').slice(0,7)!==dimensionScope.get('to').slice(0,7);
+      previous.disabled = next.disabled = true;
+      status.textContent = '';
+      rows.setAttribute('aria-busy','true');
+      rows.innerHTML = '<p>Memuat daftar CSR…</p>';
+      try {
+        const result = await request(isDimension?'dimension':'quadrant',{...(filters || {quadrant:code}),offset,q:query,sort});
+        if (id!==requestId || !panel.isConnected) return;
+        rows.innerHTML = !result ? '<p>Daftar nama ASK belum diaktifkan di server lokal.</p>'
+          : !result.rows.length ? '<p>Tidak ada nama CSR yang cocok.</p>'
+          : `<table><thead><tr><th scope="col">Nama CSR</th><th scope="col">Unit</th>${multiMonth?'<th scope="col">Bulan penilaian</th>':''}<th scope="col">${isDimension?el({attitude:'Attitude',skill:'Skill',knowledge:'Knowledge'}[filters.dimension]):'ASK'} /100</th></tr></thead>
+            <tbody>${result.rows.map(row=>`<tr><th scope="row">${el(row.name)}</th><td>${el(unitLabel(row))}</td>
+             ${multiMonth?`<td>${el(dashboardTrialFormatMonth(row.month))}</td>`:''}<td>${scoreLabel(isDimension?row.dimensionScore:row.score)}</td></tr>`).join('')}</tbody></table>`;
+        if (result?.rows.length) {
+          const end = result.offset + result.rows.length;
+          status.textContent = `${count.format(result.offset+1)}–${count.format(end)} dari ${count.format(result.total)} ${multiMonth?'penilaian':'CSR'}`;
+          previous.disabled = result.offset===0;
+          next.disabled = end>=result.total;
+        }
+      } catch {
+        if (id===requestId && panel.isConnected) rows.textContent = 'Daftar CSR belum bisa dimuat.';
+      } finally {
+        if (id===requestId) rows.removeAttribute('aria-busy');
+      }
+    }
+
+    const applyListFilters = ()=>{
+      Object.assign(state,{offset:0,query:search.value.trim(),sort:order.value});
+      loadNames();
+    };
+    form.addEventListener('submit',event=>{
+      event.preventDefault();
+      applyListFilters();
+    });
+    order.addEventListener('change',applyListFilters);
+    previous.addEventListener('click',()=>{state.offset -= pageSize;loadNames()});
+    next.addEventListener('click',()=>{state.offset += pageSize;loadNames()});
+
+    return {
+      show(selection) {
+        state = selection;
+        const breakdown = panel.querySelector('.canvas-ask-drill-breakdown');
+        breakdown.textContent = state.segmentCounts || '';
+        breakdown.hidden = !state.segmentCounts;
+        search.value = state.query;
+        order.value = state.sort;
+        loadNames();
+      },
+      cancel() {requestId++},
+    };
+  }
+
+  const selection = details=>({scope:scopeKey,offset:0,query:'',sort:'name-asc',...details});
+  const inline = report.querySelector('#canvas-ask-quadrant-csr');
+  const inlineTitle = inline.querySelector('h4');
+  const inlineList = bindNamesList(inline);
+  const quadrantButtons = [...report.querySelectorAll('[data-ask-quadrant-code]')];
+  let quadrantTrigger;
+  function showQuadrant() {
+    const {code,label} = dashboardAskQuadrantState;
+    inlineTitle.textContent = 'Daftar CSR · '+code;
+    inline.querySelector('[data-ask-list-scope]').textContent = label+' · '+inline.dataset.askScope;
+    inline.hidden = false;
+    for (const button of quadrantButtons) {
+      button.setAttribute('aria-pressed',String(button.dataset.askQuadrantCode===code));
+    }
+    inlineList.show(dashboardAskQuadrantState);
+  }
+  quadrantButtons.forEach(button=>button.addEventListener('click',()=>{
+    const {askQuadrantCode:code,askQuadrantBreakdown:segmentCounts} = button.dataset;
+    const label = button.querySelector('.canvas-quadrant-summary').textContent;
+    dashboardAskQuadrantState = selection({code,label,segmentCounts});
+    quadrantTrigger = button;
+    showQuadrant();
+    inlineTitle.focus({preventScroll:true});
+    inline.scrollIntoView({block:'nearest'});
+  }));
+  inline.querySelector('[data-ask-clear-quadrant]').addEventListener('click',()=>{
+    inlineList.cancel();
+    inline.hidden = true;
+    dashboardAskQuadrantState = null;
+    for (const button of quadrantButtons) button.setAttribute('aria-pressed','false');
+    quadrantTrigger?.focus();
+  });
+  if (dashboardAskQuadrantState?.scope===scopeKey) {
+    quadrantTrigger = quadrantButtons.find(button=>button.dataset.askQuadrantCode===dashboardAskQuadrantState.code);
+    if (quadrantTrigger) showQuadrant();
+  } else dashboardAskQuadrantState = null;
+
   const dialog = document.getElementById('canvas-ask-drill');
   if (!dialog) return;
-  const title = dialog.querySelector('h3');
-  const form = dialog.querySelector('.canvas-ask-drill-search');
-  const search = form.elements.namedItem('q');
-  const rows = dialog.querySelector('.canvas-ask-drill-rows');
-  const previous = dialog.querySelector('[data-ask-page="previous"]');
-  const next = dialog.querySelector('[data-ask-page="next"]');
-  const status = dialog.querySelector('.canvas-ask-drill-pager [role="status"]');
-  const pageSize = 20;
-  let requestId = 0;
-
-  async function loadNames() {
-    const id = ++requestId;
-    const {code,offset,query} = dashboardAskDrillState;
-    previous.disabled = next.disabled = true;
-    status.textContent = '';
-    rows.setAttribute('aria-busy','true');
-    rows.innerHTML = '<p>Memuat daftar CSR…</p>';
-    try {
-      const result = await request('quadrant',{quadrant:code,offset,q:query});
-      if (id!==requestId || !dialog.isConnected) return;
-      rows.innerHTML = !result ? '<p>Daftar nama ASK belum diaktifkan di server lokal.</p>'
-        : !result.rows.length ? '<p>Tidak ada nama CSR yang cocok.</p>'
-        : `<table><thead><tr><th scope="col">Nama CSR</th><th scope="col">Unit</th><th scope="col">ASK /100</th></tr></thead>
-          <tbody>${result.rows.map(row=>`<tr><th scope="row">${el(row.name)}</th><td>${el(unitLabel(row))}</td><td>${scoreLabel(row.score)}</td></tr>`).join('')}</tbody></table>`;
-      if (result?.rows.length) {
-        const end = result.offset + result.rows.length;
-        status.textContent = `${count.format(result.offset+1)}–${count.format(end)} dari ${count.format(result.total)} CSR`;
-        previous.disabled = result.offset===0;
-        next.disabled = end>=result.total;
-      }
-    } catch {
-      if (id===requestId && dialog.isConnected) rows.textContent = 'Daftar CSR belum bisa dimuat.';
-    } finally {
-      if (id===requestId) rows.removeAttribute('aria-busy');
-    }
-  }
-
+  const dialogList = bindNamesList(dialog);
   function openNames() {
-    const {label,code,query} = dashboardAskDrillState;
-    title.textContent = `${label} · ${code}`;
-    search.value = query;
+    dialog.querySelector('h3').textContent = dashboardAskDrillState.label;
     if (!dialog.open) dialog.showModal();
-    loadNames();
+    dialogList.show(dashboardAskDrillState);
   }
-  report.querySelectorAll('[data-ask-quadrant-code]').forEach(button=>button.addEventListener('click',()=>{
-    const code = button.dataset.askQuadrantCode;
-    const label = button.querySelector('.canvas-quadrant-summary').textContent;
-    dashboardAskDrillState = {code,label,scope:scopeKey,offset:0,query:''};
+  report.querySelectorAll('[data-ask-names]').forEach(button=>button.addEventListener('click',()=>{
+    const {askNames,askNamesLabel:label} = button.dataset;
+    dashboardAskDrillState = selection({filters:JSON.parse(askNames),label});
     openNames();
   }));
-  form.addEventListener('submit',event=>{
-    event.preventDefault();
-    Object.assign(dashboardAskDrillState,{offset:0,query:search.value.trim()});
-    loadNames();
-  });
-  previous.addEventListener('click',()=>{dashboardAskDrillState.offset -= pageSize;loadNames()});
-  next.addEventListener('click',()=>{dashboardAskDrillState.offset += pageSize;loadNames()});
   dialog.addEventListener('close',()=>{
-    requestId++;
+    dialogList.cancel();
     if (dialog.isConnected) dashboardAskDrillState = null;
   });
   if (dashboardAskDrillState?.scope===scopeKey) openNames();
+  else dashboardAskDrillState = null;
 }
 
 function bindDashboard(){
@@ -662,24 +797,67 @@ function bindDashboard(){
   askReport?.addEventListener('toggle',()=>{
     if (askReport.isConnected) rememberAskReport(askReport.open);
   });
+  const reportTabs = [...document.querySelectorAll('[data-dashboard-report-tab]')];
+  const selectReportTab = key=>{
+    if (!reportTabs.length) return;
+    dashboardReportTab = key;
+    for (const tab of reportTabs) {
+      const selected = tab.dataset.dashboardReportTab===key;
+      tab.setAttribute('aria-selected',String(selected));
+      tab.tabIndex = selected ? 0 : -1;
+      document.getElementById(tab.getAttribute('aria-controls')).hidden = !selected;
+    }
+    if (key==='ask' && askReport) {
+      rememberAskReport(true);
+      askReport.open = true;
+    }
+  };
+  reportTabs.forEach((tab,index)=>{
+    tab.addEventListener('click',()=>selectReportTab(tab.dataset.dashboardReportTab));
+    tab.addEventListener('keydown',event=>{
+      const next = {
+        ArrowLeft:(index+reportTabs.length-1)%reportTabs.length,
+        ArrowRight:(index+1)%reportTabs.length,
+        Home:0, End:reportTabs.length-1,
+      }[event.key];
+      if (next===undefined) return;
+      event.preventDefault();
+      const target = reportTabs[next];
+      selectReportTab(target.dataset.dashboardReportTab);
+      target.focus();
+    });
+  });
   document.querySelectorAll('[data-dashboard-jump]').forEach(button=>button.addEventListener('click',()=>{
     const destination = button.dataset.dashboardJump;
     if (destination==='ask' && askReport) {
-      rememberAskReport(true);
-      askReport.open = true;
+      selectReportTab('ask');
       askReport.querySelector('summary')?.focus({preventScroll:true});
       askReport.scrollIntoView({block:'start'});
     } else if (destination==='training') {
+      selectReportTab('training');
       const training = document.getElementById('canvas-training-summary-title');
       training?.focus({preventScroll:true});
       training?.scrollIntoView({block:'start'});
     } else if (destination==='bad-ticket') {
+      selectReportTab('training');
       openDashboardBadTickets();
     }
   }));
   askReport?.querySelectorAll('[data-ask-pass-group]').forEach(disclosure=>disclosure.addEventListener('toggle',()=>{
     if (disclosure.isConnected) dashboardAskPassDisclosures.set(disclosure.dataset.askPassGroup,disclosure.open);
   }));
+  const segmentPass = askReport?.querySelector('.canvas-ask-segment-pass');
+  segmentPass?.addEventListener('click',event=>{
+    const trigger = event.target.closest('[data-ask-donut-location]');
+    if (!trigger) return;
+    const target = document.getElementById(trigger.dataset.askDonutLocation);
+    const expand = target.hidden;
+    segmentPass.querySelectorAll('.canvas-pass-donut-locations').forEach(panel=>{panel.hidden = panel!==target || !expand;});
+    segmentPass.querySelectorAll('button[data-ask-donut-location]').forEach(button=>{
+      button.setAttribute('aria-expanded',String(expand && button.dataset.askDonutLocation===target.id));
+    });
+    if (expand) target.focus();
+  });
   bindDashboardAskDrilldown(askReport);
   if (document.querySelector('.ctp-executive')) {
     loadLocalAskReport();
@@ -734,8 +912,9 @@ function bindDashboard(){
     dropdown.addEventListener('change',({target})=>{
       const value = target.dataset.dashboardArea;
       if (!value) return;
-      const selected = new Set(dashboardReportAreas ?? DASHBOARD_AREAS);
-      if (value==='all') setDashboardReportAreas(target.checked ? DASHBOARD_AREAS : []);
+      const choices = dashboardAreaChoices();
+      const selected = new Set(dashboardReportAreas ?? choices);
+      if (value==='all') setDashboardReportAreas(target.checked ? choices : []);
       else {
         if (target.checked) selected.add(value);
         else selected.delete(value);
@@ -984,7 +1163,7 @@ function localAskSlideTwo() {
  const summary = dimensions.map((label,index)=>{
   const high = segments.reduce((sum,name)=>sum+current.groups[name].high[index],0);
   const before = previous ? segments.reduce((sum,name)=>sum+previous.groups[name].high[index],0) : 0;
-  return `<article class="ak-kpi ask-report-stat"><span class="ask-report-icon" aria-hidden="true">✓</span><span>${label} lulus</span><strong>${resultLabel(high,total)}</strong><small>Lulus dari ${num(total)} ${unit}</small>${previous?`<small>Sebelumnya ${resultLabel(before,previousTotal)} dari ${num(previousTotal)} ${unit}</small>`: ''}${previous?askDelta(rate(high,total),rate(before,previousTotal)):''}<dl class="ask-report-fail"><dt>Tidak lulus</dt><dd><span>${rangeLabel(expected)}</span><b>${failureLabel(high,total)}</b></dd><dd><span>${rangeLabel(priorExpected)}</span><b>${previous?failureLabel(before,previousTotal):'Belum tersedia'}</b></dd></dl></article>`;
+  return `<article class="ak-kpi ask-report-stat"><span class="ask-report-icon" aria-hidden="true">✓</span><span>High ${label}</span><strong>${resultLabel(high,total)}</strong><small>Dari ${num(total)} ${unit}</small>${previous?`<small>Sebelumnya ${resultLabel(before,previousTotal)} dari ${num(previousTotal)} ${unit}</small>`: ''}${previous?askDelta(rate(high,total),rate(before,previousTotal)):''}<dl class="ask-report-fail"><dt>Low</dt><dd><span>${rangeLabel(expected)}</span><b>${failureLabel(high,total)}</b></dd><dd><span>${rangeLabel(priorExpected)}</span><b>${previous?failureLabel(before,previousTotal):'Belum tersedia'}</b></dd></dl></article>`;
  }).join('');
  const findings = size === 1 && !locationKey ? snapshot?.parameterFindings : null;
  const nationalFindings = findings && !localAskChannel ? `<details class="ak-panel ask-report-findings">
@@ -1026,7 +1205,7 @@ function localAskSlideTwo() {
  const quadrantColors = Object.fromEntries(allSegments.map((name,i)=>[name,['#203b6b','#487fb6','#78b9df','#bcdcf0'][i]]));
  const quadrantChart = quadrantCounts.map(({label,count})=>{
   const levels = ASK_QUADRANTS.find(([code])=>code===label)?.slice(2);
-  const explanation = levels ? dimensions.map((name,i)=>`<span class="${levels[i]==='High'?'ask-level-high':'ask-level-low'}">${name} ${levels[i]==='High'?'lulus':'belum lulus'}</span>`).join('') : '<span>Kuadran belum tercatat</span>';
+  const explanation = levels ? dimensions.map((name,i)=>`<span class="${levels[i]==='High'?'ask-level-high':'ask-level-low'}">${name} ${levels[i]==='High'?'High':'Low'}</span>`).join('') : '<span>Kuadran belum tercatat</span>';
   const parts = segments.map(name=>{
    const value = availableQuadrants[name][label] || 0;
    return value ? `<span style="width:${100*value/scale}%;background:${quadrantColors[name]}" title="${el(segmentNames[name])} · ${num(value)} CSR"></span>` : '';
@@ -1050,7 +1229,7 @@ function localAskSlideTwo() {
   + locationSelect('localAskRegion','Region',regions.map(value=>[value,value]),region)
   + locationSelect('localAskUnit','Unit Name',unitOptions,unitParts?localAskLocation.unit:'');
  return `<section class="ak-dashboard ask-report" aria-label="Laporan ASK">
- <header class="ak-hero"><div><h2>Profil ASK per segmen</h2><p>Kelulusan, perbandingan periode, dan distribusi kuadran.</p></div></header>
+ <header class="ak-hero"><div><h2>Profil ASK per segmen</h2><p>Kategori High dan Low, perbandingan periode, dan distribusi kuadran.</p></div></header>
  <div class="ak-panel ask-report-filters"><div class="ak-toolbar ask-filter-row"><label>Periode kinerja<select id="localAskWindow">${Object.entries({month:'Bulanan',quarter:'Triwulan',semester:'Semester',ytd:'YTD'}).map(([value,label])=>`<option value="${value}" ${value===localAskWindow?'selected':''}>${label}</option>`).join('')}</select></label><label>${periodLabels[localAskWindow]}<select id="localAskMonth">${periods[localAskWindow].map(([value,label])=>`<option value="${el(value)}" ${value===selectedPeriod?'selected':''}>${el(label)}</option>`).join('')}</select></label>
  <label>CTP / Channel<select id="localAskChannel"><option value="">Nasional · Semua CTP</option>${Object.keys(LOCAL_ASK_CHANNELS).map(name=>`<option ${name===localAskChannel?'selected':''}>${name}</option>`).join('')}</select></label>
  <button type="button" class="btn" id="localAskReset">Reset filter ASK</button>
@@ -1058,10 +1237,10 @@ function localAskSlideTwo() {
  ${localAskChannel?`<div class="ask-filter-location"><h3>Lokasi</h3><div class="ak-toolbar ask-filter-row">${localAskChannel==='GraPARI'?`<label>Business Model<select id="localAskModel"><option value="">Semua model</option>${LOCAL_ASK_CHANNELS.GraPARI.map((name,i)=>`<option value="${name}" ${name===localAskModel?'selected':''}>${['MOMO','TOMO'][i]} · ${segmentNames[name]}</option>`).join('')}</select></label>`:''}${locationFilters}</div></div>`: ''}</div>
  <div class="ak-panel ask-report-periods"><div><small>Periode laporan</small><strong>${rangeLabel(expected)}</strong><p>Data tersedia (${available.length}/${size} bulan) · ${coverage(available)}</p></div><div><small>Periode pembanding</small><strong>${rangeLabel(priorExpected)}</strong><p>Data tersedia (${priorAvailable.length}/${size} bulan) · ${coverage(priorAvailable)}</p></div>${comparable?'':'<p>Perubahan belum ditampilkan karena cakupan kedua periode belum lengkap.</p>'}</div>
  ${!available.length?'<div class="ak-panel"><h3>Belum ada data untuk periode ini</h3><p>Pilih periode lain untuk melihat hasil ASK.</p></div>':`<section><h3>Cakupan · ${scope}</h3><p><strong>${num(total)} ${unit}</strong> ${countComparison(total,previous?previousTotal:undefined)}${size===1?'':' Satu CSR dapat menyumbang satu penilaian setiap bulan.'}</p><div class="ask-report-grid">${channelCards}</div></section>
- <section><h3>Kelulusan · ${scope}</h3><p>Jumlah tidak lulus dihitung per dimensi.</p><div class="ask-report-national">${summary}</div></section>
+ <section><h3>High dan Low ASK · ${scope}</h3><div class="ask-report-national">${summary}</div></section>
  ${trend ? localAskHighTrend(trend, scope, dimensions) : ''}
- <section><h3>Kelulusan per segmen</h3><p>High = skor ≥80. Low = skor di bawah 80. ${previous?'Garis pada batang menandai persentase periode sebelumnya.':''}</p>${nationalFindings}<div class="ask-report-segments">${cards}</div></section>
- <section class="ak-panel ask-report-extra"><div class="ask-quadrant-heading"><div><h3>Distribusi kuadran ASK</h3><p>Posisi terakhir setiap CSR dalam periode. Setiap kuadran menunjukkan kombinasi kelulusan Attitude, Skill, dan Knowledge. Nilai 80 ke atas dinyatakan lulus.</p></div>
+ <section><h3>High dan Low ASK per segmen</h3><p>High = skor ≥80. Low = skor di bawah 80. ${previous?'Garis pada batang menandai persentase periode sebelumnya.':''}</p>${nationalFindings}<div class="ask-report-segments">${cards}</div></section>
+ <section class="ak-panel ask-report-extra"><div class="ask-quadrant-heading"><div><h3>Distribusi kuadran ASK</h3><p>Posisi terakhir setiap CSR dalam periode. Setiap kuadran menunjukkan kombinasi High dan Low untuk Attitude, Skill, dan Knowledge.</p></div>
  <label>Urutkan berdasarkan total CSR <select id="localAskQuadrantOrder"><option value="desc" ${localAskQuadrantOrder==='desc'?'selected':''}>Terbanyak ke tersedikit</option><option value="asc" ${localAskQuadrantOrder==='asc'?'selected':''}>Tersedikit ke terbanyak</option></select></label></div>
  <ul class="ask-quadrant-legend">${segments.map(name=>`<li><i style="background:${quadrantColors[name]}" aria-hidden="true"></i>${el(segmentNames[name])}</li>`).join('')}</ul>
  <div class="ask-quadrant-chart">${quadrantGroups?quadrantChart:'<p>Data kuadran periode ini belum tersedia. Jalankan ulang server lokal.</p>'}</div>
@@ -1104,7 +1283,7 @@ function bindLocalAskDetails(){
     }
     if (!response.ok) throw new Error('ASK details unavailable');
     const rows = await response.json();
-    const score = value => `${value.toLocaleString('id-ID')} · ${value>=80?'Lulus':'Belum lulus'}`;
+    const score = value => `${value.toLocaleString('id-ID')} · ${value>=80?'High':'Low'}`;
     target.innerHTML = rows.length
      ? `<h4>Detail CSR · ${rows.length} orang</h4><div class="tablewrap"><table><thead><tr>${['Nama CSR','Attitude','Skill','Knowledge','Bulan penilaian'].map(label=>`<th scope="col">${label}</th>`).join('')}</tr></thead><tbody>${rows.map(row=>`<tr><th scope="row">${el(row.name || 'Nama belum tersedia')}</th>${row.scores.map(value=>`<td>${score(value)}</td>`).join('')}<td>${el(row.month)}</td></tr>`).join('')}</tbody></table></div>`
      : '<p>Tidak ada CSR pada pilihan ini.</p>';
