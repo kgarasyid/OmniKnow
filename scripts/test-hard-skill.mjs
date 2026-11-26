@@ -316,6 +316,41 @@ assert.deepEqual(locationRanks.rankingsByLocation.map(group=>[group.location,gro
 ]);
 assert.equal(locationRanks.top[0].name,'CSR Region B Tinggi');
 assert.equal(locationRanks.rankingsByLocation[0].top.length,2);
+// CTP rankings combine locations; the full roster remains searchable, sortable and paginated.
+const ctpRanks = localAskDrilldown(areaRoster,params({...areaFilters,bottomBy:'ctp',limit:'5'}));
+assert.deepEqual(ctpRanks.rankingsByCtp.map(group=>[group.channel,group.total]),[['GraPARI',27],['Call Center',1]]);
+assert.equal(ctpRanks.rankingsByCtp[0].bottom[0].name,'CSR Area Dua');
+assert.equal(ctpRanks.rankingsByCtp[0].top.length,5);
+const rosterQuery = params({from:'2026-10-01',view:'roster',sort:'score-desc'});
+const fullRoster = localAskDrilldown(areaRoster,rosterQuery);
+assert.equal(fullRoster.total,28);
+assert.equal(fullRoster.rows.length,20);
+assert.equal(fullRoster.rows[0].name,'CSR Fiktif 24');
+rosterQuery.set('offset','20');
+assert.equal(localAskDrilldown(areaRoster,rosterQuery).rows.length,8);
+rosterQuery.set('q','CSR Area');rosterQuery.set('offset','0');rosterQuery.set('sort','name-desc');
+assert.deepEqual(localAskDrilldown(areaRoster,rosterQuery).rows.map(row=>row.name),['CSR Area Tiga','CSR Area Dua']);
+rosterQuery.set('channel','Call Center');
+assert.equal(localAskDrilldown(areaRoster,rosterQuery).total,0);
+rosterQuery.delete('q');
+assert.equal(localAskDrilldown(areaRoster,rosterQuery).rows[0].name,'CSR Call Center');
+rosterQuery.delete('channel');rosterQuery.set('listArea','Area 2');rosterQuery.set('listUnit','Unit Dua');
+const filteredRoster = localAskDrilldown(areaRoster,rosterQuery);
+assert.equal(filteredRoster.total,1);
+assert.equal(filteredRoster.rows[0].name,'CSR Area Dua');
+assert.deepEqual(filteredRoster.options.units,['Unit Dua']);
+assert.deepEqual(filteredRoster.options.areas,['Area 1','Area 2','Area 3','Site belum tercatat']);
+rosterQuery.set('listUnit','Unit Tiga');
+assert.equal(localAskDrilldown(areaRoster,rosterQuery).total,0);
+rosterQuery.set('sort','invalid');
+assert.equal(localAskDrilldown(areaRoster,rosterQuery),null);
+const siteRoster = localAskDrilldown(regionRoster,params({from:'2026-10-01',view:'roster',listArea:'Site 1 · Bandung',channel:'Call Center'}));
+assert.equal(siteRoster.total,2);
+assert.ok(siteRoster.rows.every(row=>row.areaSite==='Site 1 · Bandung'));
+assert.deepEqual(siteRoster.options.units,['CC BANDUNG']);
+const ecareSites = localAskDrilldown(regionRoster,params({from:'2026-10-01',view:'roster',listArea:'Site 2 · Semarang',channel:'E-Care'}));
+assert.equal(ecareSites.total,1);
+assert.equal(ecareSites.rows[0].areaSite,'Site 2 · Semarang');
 const dimensionQuery = params({
  view:'dimension',dimension:'attitude',level:'high',segment:'Walk In Mitra',sort:'score-desc',
  locationArea:'Area 1',locationRegions:JSON.stringify(['Region Fiktif']),

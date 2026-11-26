@@ -27,6 +27,7 @@ const dashboardHasLocalMap = () => ['127.0.0.1', 'localhost', '[::1]'].includes(
 
 let dashboardTab=0,dashboardSub={2:'Hardskill',3:'ACS Booster',4:'Pre Test',5:'Agents'},dashboardGroup='Area',dashboardRawQuery='',dashboardRawPage=0;
 let dashboardTrial = true;
+const dashboardExecutiveDisclosures = new Map();
 const DASHBOARD_TRIAL_DEFAULT_START = '2026-08';
 const DASHBOARD_TRIAL_DEFAULT_MONTH = '2026-10';
 let dashboardTrialWindow = 'month';
@@ -501,9 +502,9 @@ function dashboardWorkspace() {
       ${trial ? (map?`<div class="wall-map">${map}</div>`:'')+ctpExecutiveDashboard(xs,true)
         : showExecutiveCards ? ctpExecutiveDashboard(xs)+`<details class="dw-card ctp-supporting">
         <summary>Data pendukung dan analisis detail</summary>
-        ${participantOverview(xs)+executiveSummary(xs)+dashSummary(xs)+dashboardEnrichment(xs)}
+        ${executiveSummary(xs)+participantOverview(xs)+dashSummary(xs)+dashboardEnrichment(xs)}
       </details>`
-        : dashboardTab===0 ? map+participantOverview(xs)+executiveSummary(xs)+dashSummary(xs)
+        : dashboardTab===0 ? map+executiveSummary(xs)+participantOverview(xs)+dashSummary(xs)
         : dashboardTab===1 ? dashASK(xs)
         : dashboardTab===2||dashboardTab===3 ? dashProgram(xs,dashboardSub[dashboardTab])
         : dashboardTab===4 ? dashTests(xs) : dashRaw(xs)}
@@ -626,6 +627,11 @@ function bindDashboardAskDrilldown(report) {
           ${rankingTable(title+' · '+area.area,area.rows,area.comparison)}
         </details>`).join(''):'<p>Belum ada skor ASK GraPARI untuk area dalam cakupan ini.</p>'}</article>`;
     };
+    const ctpRanks = (title,key,groups)=>`<article><h4>${el(title)}</h4>${groups?.length?
+      groups.map(group=>`<details class="canvas-ask-rank-area"${groups.length===1?' open':''}>
+        <summary>${el(group.channel)} <small>${count.format(group.total)} CSR dinilai</small></summary>
+        ${rankingTable(title+' · '+group.channel,group[key],group.comparison)}
+      </details>`).join(''):'<p>Belum ada skor ASK per CTP dalam cakupan ini.</p>'}</article>`;
     const locationRanks = (title,key,locations)=>{
       return `<article><h4>${title}</h4>${locations?.length?
         locations.map(location=>`<details class="canvas-ask-rank-area">
@@ -637,10 +643,12 @@ function bindDashboardAskDrilldown(report) {
       const result = await request('ranking',{limit,bottomBy,compare:priorMonth?'previous':''});
       if (!rank.isConnected) return;
       const rankingNote = priorMonth ? `<p class="canvas-ask-rank-note">${result?.comparison?.available
-        ? `${el(priorShort)} · “Baru masuk” berarti sebelumnya di luar daftar.${bottomBy==='location'?' Posisi Top dan Bottom '+limit+' dihitung dalam tiap lokasi.':bottomBy?' Posisi Bottom '+limit+' dihitung dari skor terendah di area masing-masing.':''}`
+        ? `${el(priorShort)} · “Baru masuk” berarti sebelumnya di luar daftar.${bottomBy==='ctp'?' Posisi Top dan Bottom '+limit+' dihitung dalam tiap CTP.':bottomBy==='location'?' Posisi Top dan Bottom '+limit+' dihitung dalam tiap lokasi.':bottomBy?' Posisi Bottom '+limit+' dihitung dari skor terendah di area masing-masing.':''}`
         : `Pembanding ${el(priorMonth)} belum tersedia untuk cakupan ini.`}</p>` : '';
       rank.innerHTML = !result ? '<p>Daftar nama ASK belum diaktifkan di server lokal.</p>'
-        : result.total ? `${rankingNote}<div class="canvas-ask-rank-grid">${bottomBy==='location'
+        : result.total ? `${rankingNote}<div class="canvas-ask-rank-grid">${bottomBy==='ctp'
+          ? `${ctpRanks('Top '+limit+' per CTP','top',result.rankingsByCtp)}${ctpRanks('Bottom '+limit+' per CTP','bottom',result.rankingsByCtp)}`
+          : bottomBy==='location'
           ? `${locationRanks('Top '+limit+' per Lokasi','top',result.rankingsByLocation)}${locationRanks('Bottom '+limit+' per Lokasi','bottom',result.rankingsByLocation)}`
           : `${rankingCard('Top '+limit,result.top,result.comparison)}${bottomBy
           ? areaBottom(result.bottomByArea)
@@ -661,6 +669,9 @@ function bindDashboardAskDrilldown(report) {
     const form = panel.querySelector('.canvas-ask-drill-search');
     const search = form.elements.namedItem('q');
     const order = form.elements.namedItem('sort');
+    const channelFilter = form.elements.namedItem('channel');
+    const areaFilter = form.elements.namedItem('listArea');
+    const unitFilter = form.elements.namedItem('listUnit');
     const rows = panel.querySelector('.canvas-ask-drill-rows');
     const previous = panel.querySelector('[data-ask-page="previous"]');
     const next = panel.querySelector('[data-ask-page="next"]');
@@ -670,7 +681,7 @@ function bindDashboardAskDrilldown(report) {
 
     async function loadNames() {
       const id = ++requestId;
-      const {code,offset,query,sort,filters} = state;
+      const {code,offset,query,sort,filters,view,channel,listArea,listUnit} = state;
       const isDimension = Boolean(filters);
       const multiMonth = isDimension && dimensionScope.get('from').slice(0,7)!==dimensionScope.get('to').slice(0,7);
       previous.disabled = next.disabled = true;
@@ -678,12 +689,18 @@ function bindDashboardAskDrilldown(report) {
       rows.setAttribute('aria-busy','true');
       rows.innerHTML = '<p>Memuat daftar CSR…</p>';
       try {
-        const result = await request(isDimension?'dimension':'quadrant',{...(filters || {quadrant:code}),offset,q:query,sort});
+        const result = await request(view || (isDimension?'dimension':'quadrant'),{...(filters || (view==='roster'?{channel,listArea,listUnit}:{quadrant:code})),offset,q:query,sort});
         if (id!==requestId || !panel.isConnected) return;
+        if (result?.options && view==='roster') {
+          for (const [control,values,label,value] of [[areaFilter,result.options.areas,'Semua area / site',listArea],[unitFilter,result.options.units,'Semua unit',listUnit]]) {
+            control.innerHTML = `<option value="">${label}</option>`+values.map(item=>`<option value="${el(item)}">${el(item)}</option>`).join('');
+            control.value = value || '';
+          }
+        }
         rows.innerHTML = !result ? '<p>Daftar nama ASK belum diaktifkan di server lokal.</p>'
           : !result.rows.length ? '<p>Tidak ada nama CSR yang cocok.</p>'
-          : `<table><thead><tr><th scope="col">Nama CSR</th><th scope="col">Unit</th>${multiMonth?'<th scope="col">Bulan penilaian</th>':''}<th scope="col">${isDimension?el({attitude:'Attitude',skill:'Skill',knowledge:'Knowledge'}[filters.dimension]):'ASK'} /100</th></tr></thead>
-            <tbody>${result.rows.map(row=>`<tr><th scope="row">${el(row.name)}</th><td>${el(unitLabel(row))}</td>
+          : `<table><thead><tr><th scope="col">Nama CSR</th>${view==='roster'?'<th scope="col">CTP</th><th scope="col">Area / Site</th>':''}<th scope="col">Unit</th>${multiMonth?'<th scope="col">Bulan penilaian</th>':''}<th scope="col">${isDimension?el({attitude:'Attitude',skill:'Skill',knowledge:'Knowledge'}[filters.dimension]):'ASK'} /100</th></tr></thead>
+            <tbody>${result.rows.map(row=>`<tr><th scope="row">${el(row.name)}</th>${view==='roster'?`<td>${el(row.channel)}</td><td>${el(row.areaSite || row.area || '—')}</td>`:''}<td>${el(view==='roster'?(row.unit || '—'):unitLabel(row))}</td>
              ${multiMonth?`<td>${el(dashboardTrialFormatMonth(row.month))}</td>`:''}<td>${scoreLabel(isDimension?row.dimensionScore:row.score)}</td></tr>`).join('')}</tbody></table>`;
         if (result?.rows.length) {
           const end = result.offset + result.rows.length;
@@ -699,7 +716,7 @@ function bindDashboardAskDrilldown(report) {
     }
 
     const applyListFilters = ()=>{
-      Object.assign(state,{offset:0,query:search.value.trim(),sort:order.value});
+      Object.assign(state,{offset:0,query:search.value.trim(),sort:order.value,...(channelFilter?{channel:channelFilter.value,listArea:areaFilter.value,listUnit:unitFilter.value}:{})});
       loadNames();
     };
     form.addEventListener('submit',event=>{
@@ -707,6 +724,9 @@ function bindDashboardAskDrilldown(report) {
       applyListFilters();
     });
     order.addEventListener('change',applyListFilters);
+    channelFilter?.addEventListener('change',()=>{areaFilter.value='';unitFilter.value='';applyListFilters()});
+    areaFilter?.addEventListener('change',()=>{unitFilter.value='';applyListFilters()});
+    unitFilter?.addEventListener('change',applyListFilters);
     previous.addEventListener('click',()=>{state.offset -= pageSize;loadNames()});
     next.addEventListener('click',()=>{state.offset += pageSize;loadNames()});
 
@@ -725,6 +745,17 @@ function bindDashboardAskDrilldown(report) {
   }
 
   const selection = details=>({scope:scopeKey,offset:0,query:'',sort:'name-asc',...details});
+  const roster = report.querySelector('[data-ask-roster]');
+  if (roster) {
+    const list = bindNamesList(roster);
+    let loaded = false;
+    roster.addEventListener('toggle',()=>{
+      if (roster.open && !loaded) {
+        loaded = true;
+        list.show(selection({view:'roster',channel:'',listArea:'',listUnit:''}));
+      }
+    });
+  }
   const inline = report.querySelector('#canvas-ask-quadrant-csr');
   const inlineTitle = inline.querySelector('h4');
   const inlineList = bindNamesList(inline);
@@ -784,6 +815,9 @@ function bindDashboardAskDrilldown(report) {
 
 function bindDashboard(){
   bindDashboardMap();
+  document.querySelectorAll('[data-executive-channel]').forEach(panel=>panel.addEventListener('toggle',()=>{
+    if (panel.isConnected) dashboardExecutiveDisclosures.set(panel.dataset.executiveChannel,panel.open);
+  }));
   document.querySelectorAll('.canvas-kpi[data-kpi]').forEach(card=>card.addEventListener('toggle',()=>{
     if (!card.isConnected) return;
     if (card.open) dashboardOpenKpis.add(card.dataset.kpi);
@@ -1342,7 +1376,7 @@ function bindLocalAskHighTrend() {
  }
 }
 
-function bindAskDashboard(){bindLocalAskReset();bindLocalAskDetails();bindLocalAskHighTrend();for(const [field,id] of [['area','localAskArea'],['region','localAskRegion'],['unit','localAskUnit']]){document.getElementById(id)?.addEventListener('change',event=>{localAskLocation[field]=event.target.value;if(field==='area')localAskLocation.region='';if(field!=='unit')localAskLocation.unit='';render();document.getElementById(id)?.focus({preventScroll:true})})}document.getElementById('localAskChannel')?.addEventListener('change',e=>{localAskChannel=e.target.value;localAskModel='';Object.assign(localAskLocation,{area:'',region:'',unit:''});render();document.getElementById('localAskChannel')?.focus({preventScroll:true})});document.getElementById('localAskModel')?.addEventListener('change',e=>{localAskModel=e.target.value;Object.assign(localAskLocation,{area:'',region:'',unit:''});render();document.getElementById('localAskModel')?.focus({preventScroll:true})});document.getElementById('localAskWindow')?.addEventListener('change',e=>{localAskWindow=e.target.value;render();document.getElementById('localAskWindow')?.focus({preventScroll:true})});document.getElementById('localAskQuadrantOrder')?.addEventListener('change',e=>{localAskQuadrantOrder=e.target.value;render();document.getElementById('localAskQuadrantOrder')?.focus({preventScroll:true})});if(document.querySelector('.ak-dashboard'))loadLocalAskReport();document.getElementById('localAskMonth')?.addEventListener('change',e=>{localAskMonth=e.target.value;render()});document.querySelectorAll('[data-ask-pdf]').forEach(b=>b.onclick=askDownloadSummary);document.getElementById('askActivityCategory')?.addEventListener('change',e=>{category=e.target.value;askDetailPage=0;render()});document.getElementById('askPerformanceWindow')?.addEventListener('change',e=>{askPerformanceWindow=e.target.value;if(askPerformanceWindow==='YTD')reportFrom=reportTo.slice(0,4)+'-01-01';askDetailPage=0;render()});document.getElementById('askSegment')?.addEventListener('change',e=>{askSegmentFilter=e.target.value;askDetailPage=0;render()});document.querySelectorAll('[data-ask-quadrant]').forEach(b=>b.onclick=()=>{askQuadrantFilter=b.dataset.askQuadrant;askDetailPage=0;render();document.getElementById('askAgentDetail')?.focus({preventScroll:true});document.getElementById('askAgentDetail')?.scrollIntoView({behavior:'smooth',block:'start'})});document.querySelectorAll('[data-ask-reset]').forEach(b=>b.onclick=()=>{askQuadrantFilter='All';askSegmentFilter='All';askDetailQuery='';askDetailPage=0;render()});document.getElementById('askSearchForm')?.addEventListener('submit',e=>{e.preventDefault();askDetailQuery=e.target.elements.search.value.trim();askDetailPage=0;render()});document.querySelectorAll('[data-ask-page]').forEach(b=>b.onclick=()=>{askDetailPage=Number(b.dataset.askPage);render()});document.querySelectorAll('[data-ask-export]').forEach(b=>b.onclick=()=>{const rows=askDetailRows(filtered());if(!rows.length){notify('Tidak ada data untuk diekspor');return}csvDownload('OmniKnow-ASK-'+reportFrom+'-'+reportTo,rows.map(a=>{const e=askExcelLogic(a);return {agent_id:a.id,name:a.name,segment:askSegment(a),location:agentLocation(a),region:a.region,attitude:a.attitude,skill:a.skill,knowledge:a.knowledge,weighted_ask:e.score,quadrant:e.quadrant,recommendation:e.recommendation,talent:e.talent,from:reportFrom,to:reportTo,comparison_window:askPerformanceWindow,comparison_from:askComparisonBounds().from,comparison_to:askComparisonBounds().to,source:isShowcaseAgent(a)?'Synthetic demo':'Local record'}}))})}
+function bindAskDashboard(){bindLocalAskReset();bindLocalAskDetails();bindLocalAskHighTrend();for(const [field,id] of [['area','localAskArea'],['region','localAskRegion'],['unit','localAskUnit']]){document.getElementById(id)?.addEventListener('change',event=>{localAskLocation[field]=event.target.value;if(field==='area')localAskLocation.region='';if(field!=='unit')localAskLocation.unit='';render();document.getElementById(id)?.focus({preventScroll:true})})}document.getElementById('localAskChannel')?.addEventListener('change',e=>{localAskChannel=e.target.value;localAskModel='';Object.assign(localAskLocation,{area:'',region:'',unit:''});render();document.getElementById('localAskChannel')?.focus({preventScroll:true})});document.getElementById('localAskModel')?.addEventListener('change',e=>{localAskModel=e.target.value;Object.assign(localAskLocation,{area:'',region:'',unit:''});render();document.getElementById('localAskModel')?.focus({preventScroll:true})});document.getElementById('localAskWindow')?.addEventListener('change',e=>{localAskWindow=e.target.value;render();document.getElementById('localAskWindow')?.focus({preventScroll:true})});document.getElementById('localAskQuadrantOrder')?.addEventListener('change',e=>{localAskQuadrantOrder=e.target.value;render();document.getElementById('localAskQuadrantOrder')?.focus({preventScroll:true})});if(document.querySelector('.ak-dashboard'))loadLocalAskReport();document.getElementById('localAskMonth')?.addEventListener('change',e=>{localAskMonth=e.target.value;render()});document.querySelectorAll('[data-ask-pdf]').forEach(b=>b.onclick=askDownloadSummary);document.getElementById('askActivityCategory')?.addEventListener('change',e=>{category=e.target.value;askDetailPage=0;render()});document.getElementById('askPerformanceWindow')?.addEventListener('change',e=>{askPerformanceWindow=e.target.value;if(askPerformanceWindow==='YTD')reportFrom=reportTo.slice(0,4)+'-01-01';askDetailPage=0;render()});document.getElementById('askSegment')?.addEventListener('change',e=>{askSegmentFilter=e.target.value;askDetailPage=0;render()});document.querySelectorAll('[data-ask-quadrant]').forEach(b=>b.onclick=()=>{askQuadrantFilter=b.dataset.askQuadrant;askDetailPage=0;render();document.getElementById('askAgentDetail')?.focus({preventScroll:true});document.getElementById('askAgentDetail')?.scrollIntoView({behavior:'smooth',block:'start'})});document.querySelectorAll('[data-ask-reset]').forEach(b=>b.onclick=()=>{askQuadrantFilter='All';askSegmentFilter='All';askDetailQuery='';askDetailPage=0;render()});document.getElementById('askSearchForm')?.addEventListener('submit',e=>{e.preventDefault();askDetailQuery=e.target.elements.search.value.trim();askDetailPage=0;render()});document.querySelectorAll('.ak-pagination [data-ask-page]').forEach(b=>b.onclick=()=>{askDetailPage=Number(b.dataset.askPage);render()});document.querySelectorAll('[data-ask-export]').forEach(b=>b.onclick=()=>{const rows=askDetailRows(filtered());if(!rows.length){notify('Tidak ada data untuk diekspor');return}csvDownload('OmniKnow-ASK-'+reportFrom+'-'+reportTo,rows.map(a=>{const e=askExcelLogic(a);return {agent_id:a.id,name:a.name,segment:askSegment(a),location:agentLocation(a),region:a.region,attitude:a.attitude,skill:a.skill,knowledge:a.knowledge,weighted_ask:e.score,quadrant:e.quadrant,recommendation:e.recommendation,talent:e.talent,from:reportFrom,to:reportTo,comparison_window:askPerformanceWindow,comparison_from:askComparisonBounds().from,comparison_to:askComparisonBounds().to,source:isShowcaseAgent(a)?'Synthetic demo':'Local record'}}))})}
 
 function askFilters(){return `<section class="ak-topfilters" aria-label="Filter ASK"><label>Channel / CTP<select id="ctp"><option>All CTPs</option>${CTPS.map(c=>`<option value="${c}" ${ctp===c?'selected':''}>${c==='Contact Center'?'Call Center':c}</option>`).join('')}</select></label><label>Area / Site<select id="ctpScope"><option value="All locations">All Areas / Sites</option>${locationOptions().map(l=>`<option ${ctpScope===l?'selected':''}>${el(l)}</option>`).join('')}</select></label><label>Region<select id="region"><option>All Regions</option>${(area==='All Areas'?ALL_REGIONS:REGIONS[area]||[]).map(r=>`<option ${region===r?'selected':''}>${el(r)}</option>`).join('')}</select></label><label>Cari agen / region<input id="search" value="${el(q)}" placeholder="Nama atau ID agen"></label><button class="btn" id="searchNow">Cari</button><button class="ak-link" id="resetFilters">Reset filter</button>${area!=='All Areas'||category!=='All Categories'?`<p class="ak-inherited">Filter lintas halaman: ${el(area)} · ${el(category)}. Reset filter untuk menghapus.</p>`:''}</section>`}
 

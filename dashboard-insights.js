@@ -243,6 +243,22 @@ function dashboardAskSnapshot(snapshot, ytd=false) {
  return {groups,areas,passLocations,csrCounts:counts.length ? csrCounts : null,csrSites:Object.keys(csrSites).length ? csrSites : null,quadrants,quadrantSegments,talentPool,tryout,parameters};
 }
 
+function dashboardTryoutSessionRows(snapshots) {
+ const sessions = new Map();
+ for (const snapshot of snapshots) {
+  for (const [session,group] of Object.entries(snapshot?.tryout || {})) {
+   const total = sessions.get(session) || {count:0,sum:0};
+   total.count += group.count || 0;
+   total.sum += group.sum || 0;
+   sessions.set(session,total);
+  }
+ }
+ return ['TO 1','TO 2','TO 3','iFest'].flatMap(session=>{
+  const result = sessions.get(session);
+  return result?.count ? [{session,count:result.count,average:result.sum/result.count}] : [];
+ });
+}
+
 const ASK_TALENT_BANDS = [
  ['excellent','Excellent Performance','≥80'],
  ['good','Good Performance','70 hingga <80'],
@@ -342,9 +358,11 @@ function dashboardAskPerformanceTable(rows,{period,priorPeriod,comparisonPeriod,
  </article>`;
 }
 
-function dashboardAskListControls() {
+function dashboardAskListControls(roster=false) {
  return `<p class="canvas-ask-drill-breakdown" hidden></p>
   <form class="canvas-ask-drill-search"><label class="field">Nama CSR<input type="search" name="q" maxlength="100" autocomplete="off"></label>
+   ${roster?`<label class="field">CTP<select name="channel"><option value="">${ctp==='All CTPs'?'Semua CTP':el(dashboardChannelLabel())}</option>${(ctp==='All CTPs'?['GraPARI','Call Center','E-Care']:[]).map(channel=>`<option value="${el(channel)}">${el(channel)}</option>`).join('')}</select></label>`:''}
+   ${roster?'<label class="field">Area / Site<select name="listArea"><option value="">Semua area / site</option></select></label><label class="field">Unit<select name="listUnit"><option value="">Semua unit</option></select></label>':''}
    <label class="field">Urutkan<select name="sort"><option value="name-asc">Nama A–Z</option><option value="name-desc">Nama Z–A</option><option value="score-desc">Skor tertinggi</option><option value="score-asc">Skor terendah</option></select></label>
    <button type="submit" class="btn">Cari</button></form>
   <div class="canvas-ask-drill-rows" aria-live="polite"></div>
@@ -879,7 +897,11 @@ function dashboardAskReport({scope,channel,period,priorPeriod,priorShort,compari
  const chartOptions = {period,priorPeriod,comparisonPeriod,ytd,range,detailScope};
  const singleContactChannel = ['Call Center','E-Care'].includes(channel);
  const open = ctp==='All CTPs' ? dashboardNationalAskReportOpen : dashboardAskReportOpen;
- return `<details class="canvas-ask-report"${open?' open':''}${detailMonth?` data-ask-detail-month="${el(detailMonth)}"`:''}>
+ const executive = `<details class="canvas-ask-executive canvas-executive-disclosure" data-executive-channel="${el(ctp)}"${dashboardExecutiveDisclosures.get(ctp)!==false?' open':''}>
+  <summary><h2>Executive Summary</h2><span class="canvas-executive-control"><span class="canvas-executive-hide">Sembunyikan</span><span class="canvas-executive-show">Tampilkan</span><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m5 8 5 5 5-5"/></svg></span></summary>
+  <div class="canvas-executive-body">${summary}</div>
+ </details>`;
+ return {executive,report:`<details class="canvas-ask-report"${open?' open':''}${detailMonth?` data-ask-detail-month="${el(detailMonth)}"`:''}>
   <summary class="canvas-ask-report-toggle">
    <div class="canvas-ask-report-heading">
     <h2 id="canvas-ask-report-title">Performance ASK – ${el(channel)}</h2>
@@ -935,15 +957,11 @@ function dashboardAskReport({scope,channel,period,priorPeriod,priorShort,compari
     ${quadrants}
    </div>
    ${ranking}
-   <article class="canvas-ask-executive" aria-labelledby="canvas-ask-executive-title">
-    <div class="canvas-ask-section-heading"><h3 id="canvas-ask-executive-title">Executive Summary</h3></div>
-    ${summary}
-   </article>
   <p class="canvas-ask-report-source">Data bersumber dari workbook ASK lokal. Skor ASK berbobot 40% Attitude, 30% Skill, dan 30% Knowledge.
    Warna A–S–K di tabel mengikuti ambang ≥90, 80 hingga &lt;90, dan &lt;80.${!multiMonth?' Warna skor ASK dan panah mengikuti perubahan terhadap bulan sebelumnya.':''}
    ${ytd?'Rata-rata YTD memakai semua penilaian yang tersedia. Distribusi skor memakai penilaian valid terakhir tiap CSR.':range?'Rata-rata periode memakai semua penilaian yang tersedia dalam rentang. Distribusi dan peringkat memakai bulan terbaru yang memiliki penilaian dalam rentang.':''}</p>
   </div>
- </details>`;
+ </details>`};
 }
 
 function dashboardCsrPie(groups) {
@@ -1030,6 +1048,7 @@ function ctpExecutiveDashboard(agents, trial=false) {
  const range = trial && !ytd && reportFrom.slice(0,7)!==reportMonth;
  const multiMonth = ytd || range;
  const lastAsk = trial || fullMonth ? dashboardAskSnapshot(localAskReport?.[reportMonth]) : null;
+ const tryoutSessionRows = dashboardTryoutSessionRows([lastAsk]);
  const previousAsk = trial || fullMonth ? dashboardAskSnapshot(localAskReport?.[priorMonth.slice(0,7)]) : null;
  const priorLabel = new Intl.DateTimeFormat('id-ID',{month:'long',year:'numeric',timeZone:'UTC'})
   .format(new Date(priorMonth+'T00:00:00Z'));
@@ -1377,7 +1396,7 @@ function ctpExecutiveDashboard(agents, trial=false) {
   const askScopeLabel = [...scopeParts,askPeriod].join(' · ');
   const detailScope = range&&latestDistribution ? [...scopeParts,monthLabel(latestDistribution.key)].join(' · ') : askScopeLabel;
   const rankingLimit = 5;
-  const rankBottomByLocation = true;
+  const rankBottomByCtp = true;
   const hasMap = DASH_CHANNELS.some(channel=>channel.value===ctp && channel.mapView) && dashboardHasLocalMap();
   const selectedMapUnit = hasMap ? dashboardLocalUnit() : null;
   const mapDistribution = selectedMapUnit ? `<section class="canvas-map-distribution canvas-ask-overview" aria-labelledby="dashboard-map-distribution-title">
@@ -1433,7 +1452,7 @@ function ctpExecutiveDashboard(agents, trial=false) {
   ${dashboardAskPassDetails(workbook.passLocations,previousAsk?.passLocations,{
    dimensions,scope:locationLabel,period:askPeriod,priorPeriod:priorLabel,multiMonth,currentMonth:reportMonth,priorMonth:priorMonth.slice(0,7),
   })}`;
-  const askReport = dashboardAskReport({
+  const {report:askReport,executive:executiveSummaryPanel} = dashboardAskReport({
    scope:locationLabel,
    channel:ctp==='All CTPs' ? 'All CTP' : dashboardChannelLabel(),
    period:askPeriod,
@@ -1460,9 +1479,14 @@ function ctpExecutiveDashboard(agents, trial=false) {
     scope:detailScope,comparisonPeriod,priorPeriod:priorLabel,priorShort,ytd,multiMonth,dimensions,bySegment:latest?.quadrantSegments,
    }),
    ranking:`<section class="canvas-panel canvas-ask-rankings" aria-labelledby="canvas-ask-ranking-title">
-    <div class="canvas-ask-section-heading"><h3 id="canvas-ask-ranking-title" tabindex="-1">Top &amp; Bottom ${rankingLimit} ASK per Lokasi</h3>
+    <div class="canvas-ask-section-heading"><h3 id="canvas-ask-ranking-title" tabindex="-1">Top &amp; Bottom ${rankingLimit} ASK per CTP</h3>
      <p>${el(detailScope)} · ${ytd?'Skor valid terakhir tiap CSR':'Skor ASK berbobot /100'}</p></div>
-    <div class="canvas-ask-rank-result"${covered?` data-ask-ranking="${rankingLimit}"`:''}${rankBottomByLocation?' data-ask-ranking-bottom="location"':''}${!multiMonth?` data-ask-ranking-prior="${el(priorLabel)}" data-ask-ranking-prior-short="${el(priorShort)}"`:''} aria-live="polite"><p>${covered?'Memuat peringkat ASK…':'Belum ada skor ASK untuk cakupan ini.'}</p></div>
+    <div class="canvas-ask-rank-result"${covered?` data-ask-ranking="${rankingLimit}"`:''}${rankBottomByCtp?' data-ask-ranking-bottom="ctp"':''}${!multiMonth?` data-ask-ranking-prior="${el(priorLabel)}" data-ask-ranking-prior-short="${el(priorShort)}"`:''} aria-live="polite"><p>${covered?'Memuat peringkat ASK…':'Belum ada skor ASK untuk cakupan ini.'}</p></div>
+    <details class="canvas-ask-inline-list canvas-ask-roster" data-ask-roster aria-label="Daftar semua CSR">
+     <summary>Daftar Semua CSR <span>Buka / tutup daftar</span></summary>
+     <p>Semua CSR dengan skor ASK valid dalam cakupan filter.</p>
+     ${dashboardAskListControls(true)}
+    </details>
    </section>`,
   });
   const trainingTotals = [['Hard Skill',hardTotal],['Training Reguler',regularTotal]];
@@ -1470,7 +1494,7 @@ function ctpExecutiveDashboard(agents, trial=false) {
    ? `${number.format(training.attendance)} kehadiran · ${number.format(training.sessions)} sesi` : trainingNote);
   const shortcuts = ctp==='All CTPs' ? dashboardNationalShortcuts() : '';
   const nationalMap = ctp==='All CTPs' && dashboardHasLocalMap() ? dashboardNationalMapPanel(csrMonth || reportMonth,askPeriod) : '';
-  return `${nationalMap}${mapDistribution}${shortcuts}<section class="ctp-executive ctp-trial" aria-label="Ringkasan CTP">
+  return `${nationalMap}${executiveSummaryPanel}${mapDistribution}${shortcuts}<section class="ctp-executive ctp-trial" aria-label="Ringkasan CTP">
    <section class="canvas-kpis" aria-label="KPI dashboard">
     ${multiMonth?'':`<p class="canvas-kpi-period">${el(comparisonPeriod)}</p>`}
     <div class="canvas-kpi-group is-core" role="group" aria-labelledby="canvas-kpi-core-title">
@@ -1508,6 +1532,7 @@ function ctpExecutiveDashboard(agents, trial=false) {
       </div>${analysisScale()}`}
     </div>
     </div>
+    ${tryoutSessionRows.length?`<section class="canvas-training-tryout" aria-labelledby="canvas-training-tryout-title"><header><h3 id="canvas-training-tryout-title">Nilai Tryout &amp; iFest</h3><p>Rata-rata peserta dengan nilai · Data ASK ${el(askPeriod)}</p></header><div class="canvas-training-tryout-table-wrap"><table class="canvas-training-tryout-table"><thead><tr><th>Sesi</th><th>Rata-rata nilai</th><th>Peserta bernilai</th><th>Periode nilai</th></tr></thead><tbody>${tryoutSessionRows.map(row=>`<tr><th scope="row">${el(row.session)}</th><td><span class="canvas-training-tryout-score"><span class="canvas-training-tryout-track"><i style="width:${Math.max(0,Math.min(100,row.average))}%"></i></span><b>${fmt(row.average)}</b></span></td><td>${number.format(row.count)}</td><td>${row.session==='iFest'?'Periode iFest pada sumber ASK':'Data ASK '+el(askPeriod)}</td></tr>`).join('')}</tbody></table></div><p class="canvas-training-tryout-note">TO 4 belum tersedia pada workbook ASK yang dicek. iFest ditampilkan sesuai periode pada sumber.</p></section>`:''}
    </article>
    ${dashboardHardSkillSection([ctp==='All CTPs'?'':dashboardChannelLabel(),locationLabel].filter(Boolean).join(' · '))}
    </section>

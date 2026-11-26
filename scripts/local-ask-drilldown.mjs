@@ -11,6 +11,17 @@ const isDay = value => /^\d{4}-\d{2}-\d{2}$/.test(value ?? '') &&
   Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
 const isQuadrant = value => /^(?:(?:HAHAKO|HALOKO|LOHAKO|LOLOKO) \((?:HA|LA)\)|BELUM TERSEDIA)$/.test(value ?? '');
 const normalize = value => String(value ?? '').trim().toLowerCase();
+const rosterAreaSite = row => {
+  if (row.channel==='GraPARI') return row.area || 'Area belum tercatat';
+  const key = value=>normalize(value).replace(/[^a-z0-9]/g,'');
+  const unit = key(row.unit), region = key(row.region);
+  const sites = [
+    {label:'Site 1 · Bandung',city:'bandung',aliases:['site1','bandung','jabar','jawabarat','contactcenter1']},
+    {label:'Site 2 · Semarang',city:'semarang',aliases:['site2','semarang','jateng','jawatengah','jatengdiy','contactcenter2']},
+  ];
+  return sites.find(site=>unit.endsWith(site.city) || site.aliases.includes(region))?.label || 'Site belum tercatat';
+};
+
 
 function monthsInScope(placements, from, to) {
   return Object.keys(placements).filter(month => month >= from && month <= to).sort();
@@ -55,7 +66,7 @@ export function localAskDrilldown(data, query) {
   const offsetValue = query.get('offset') ?? '0';
   const offset = Number(offsetValue);
   if (!isDay(from) || !isDay(to) || from > to || (channel && !channels.has(channel)) ||
-      !['ranking', 'quadrant', 'dimension'].includes(view) ||
+      !['ranking', 'quadrant', 'dimension', 'roster'].includes(view) ||
       (view !== 'ranking' && (!/^\d+$/.test(offsetValue) || !Number.isSafeInteger(offset) || !nameOrders.has(sort))) ||
       (view === 'quadrant' && !isQuadrant(quadrant)) ||
       (view === 'dimension' && (dimension<0 || !['high','low'].includes(level) || (segment && !segments.has(segment))))) return null;
@@ -89,7 +100,7 @@ export function localAskDrilldown(data, query) {
         (area && area !== normalize(rowArea)) ||
         (region && region !== normalize(rowRegion)) || (geoRegions.size && !geoRegions.has(normalize(rowRegion))) ||
         (unitId ? unitId !== String(rowUnitId ?? '').trim() : unit && unit !== normalize(rowUnit)) ||
-        (view === 'quadrant' && label !== quadrant) || (nameQuery && !normalize(name).includes(nameQuery)) ||
+        (view === 'quadrant' && label !== quadrant) || (view!=='roster' && nameQuery && !normalize(name).includes(nameQuery)) ||
         !Array.isArray(scores) || scores.length !== 3 || !scores.every(score => Number.isFinite(score) && score >= 0 && score <= 100)) return [];
     if (view==='dimension' && ((segment && rowSegment!==segment) || (locationArea && locationArea!==normalize(rowArea)) ||
         (locationRegionSet.size && !locationRegionSet.has(normalize(rowRegion))) ||
@@ -99,7 +110,7 @@ export function localAskDrilldown(data, query) {
     const score = Number(((attitude * 4 + skill * 3 + knowledge * 3) / 10).toFixed(12));
     const row = {name:String(name ?? '').trim() || '—', score, channel:rowChannel, area:rowArea, region:rowRegion, unit:rowUnit};
     if (view==='dimension') return [{...row,id,month,dimensionScore:scores[dimension]}];
-    return [view === 'ranking' ? {...row,id,attitude,skill,knowledge} : row];
+    return [['ranking','roster'].includes(view) ? {...row,id,attitude,skill,knowledge} : row];
   });
   const rows = rowsForMonths(months);
   const byName = (a, b) => collator.compare(a.name, b.name) || collator.compare(a.channel, b.channel) ||
@@ -123,6 +134,16 @@ export function localAskDrilldown(data, query) {
         ? {...row, previousRank:previousRanks.get(id) ?? null} : row);
     };
     const result = {total:rows.length, top:ranking(-1), ...(comparison ? {comparison} : {})};
+    if (query.get('bottomBy') === 'ctp') {
+      const rankingsByCtp = [...channels].flatMap(channel=>{
+        const current = rows.filter(row=>row.channel===channel);
+        if (!current.length) return [];
+        const previous = previousRows.filter(row=>row.channel===channel);
+        return [{channel,total:current.length,top:ranking(-1,current,previous),bottom:ranking(1,current,previous),
+          ...(comparison ? {comparison:{...comparison,available:previous.length>0}} : {})}];
+      });
+      return {...result,rankingsByCtp};
+    }
     if (query.get('bottomBy') === 'location') {
       const locationFor = row => {
         if (row.channel==='GraPARI') return row.area || 'Area belum tercatat';
@@ -158,6 +179,18 @@ export function localAskDrilldown(data, query) {
     });
     return {...result,bottomByArea};
   }
+  let listRows = rows;
+  let options;
+  if (view==='roster') {
+    const listArea = normalize(query.get('listArea'));
+    const listUnit = normalize(query.get('listUnit'));
+    const rosterRows = rows.map(row=>({...row,areaSite:rosterAreaSite(row)}));
+    const areaRows = rosterRows.filter(row=>!listArea || normalize(row.areaSite)===listArea);
+    const values = (records,key)=>[...new Set(records.map(row=>row[key]).filter(Boolean))].sort(collator.compare);
+    options = {areas:values(rosterRows,'areaSite'),units:values(areaRows,'unit')};
+    listRows = areaRows.filter(row=>(!listUnit || normalize(row.unit)===listUnit) &&
+      (!nameQuery || normalize(row.name).includes(nameQuery)));
+  }
   const direction = sort.endsWith('-desc') ? -1 : 1;
   const byScore = sort.startsWith('score-');
   const sortRows = (a,b)=>{
@@ -166,5 +199,5 @@ export function localAskDrilldown(data, query) {
     const order = byScore ? direction*(scoreA-scoreB) || byName(a,b) : direction*byName(a,b);
     return order || collator.compare(a.month ?? '',b.month ?? '') || collator.compare(a.id ?? '',b.id ?? '');
   };
-  return {total:rows.length,offset,rows:rows.sort(sortRows).slice(offset,offset+pageSize).map(({id,...row})=>row)};
+  return {total:listRows.length,offset,...(options?{options}:{}),rows:listRows.sort(sortRows).slice(offset,offset+pageSize).map(({id,...row})=>row)};
 }
