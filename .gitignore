@@ -17,3 +17,6 @@ private-data/
 *.xls
 *.csv
 *.tsv
+
+# Generated reporting snapshots for authorized deployments only
+deployment-data/

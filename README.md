@@ -1,3 +1,5 @@
+Production uses the latest dashboard layout and server-side reporting snapshots. For a production release with the authorized real data, run `node scripts/prepare-deployment-data.mjs` locally and deploy the source together with ignored `deployment-data/`. Never commit these snapshots or raw workbooks. Production builds without snapshots fail to avoid replacing the live reports with empty/demo data. Ordinary Git pushes alone do not publish the local records.
+
 Local development runs on loopback with fictional demo data. Deployment currently opens directly without Microsoft login; restricted Microsoft access can be re-enabled using `AUTH_MODE=microsoft`. See [AUTH-SETUP.md](docs/AUTH-SETUP.md).
 
 # OmniKnow — complete editable developer package

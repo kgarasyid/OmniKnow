@@ -23,7 +23,7 @@ const DASHBOARD_SITES = [
 let dashboardReportAreas = null;
 const dashboardAreasByChannel = new Map();
 const dashboardAreaChoices = () => ctp==='GraPARI' ? DASHBOARD_AREAS.slice(0,4) : DASHBOARD_AREAS;
-const dashboardHasLocalMap = () => ['127.0.0.1', 'localhost', '[::1]'].includes(globalThis.location?.hostname);
+const dashboardHasLocalMap = () => globalThis.location?.protocol==='https:' || ['127.0.0.1', 'localhost', '[::1]'].includes(globalThis.location?.hostname);
 
 let dashboardTab=0,dashboardSub={2:'Hardskill',3:'ACS Booster',4:'Pre Test',5:'Agents'},dashboardGroup='Area',dashboardRawQuery='',dashboardRawPage=0;
 let dashboardTrial = true;
@@ -1035,7 +1035,7 @@ let localAskQuadrantOrder = 'desc';
 let localAskRequested = false;
 
 function loadLocalAskReport() {
- if (localAskRequested || !['localhost','127.0.0.1'].includes(location.hostname)) return;
+ if (localAskRequested || !dashboardHasLocalMap()) return;
  localAskRequested = true;
  const refresh = ()=>{
   if (document.querySelector('.ctp-executive')) renderDashboardFilters(document.activeElement?.id);
