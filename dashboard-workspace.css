@@ -1273,9 +1273,8 @@ details.canvas-learning-report:not([open]) > .canvas-learning-body {display:none
 .hard-skill-report[data-report-channel="Nasional"] .hard-skill-kpi-measure {margin-top:4px}
 .hard-skill-report[data-report-channel="Nasional"] {--summary-accent:var(--canvas-red-deep)}
 .hard-skill-national-top {display:grid;grid-template-columns:minmax(0,1fr);gap:12px;align-items:stretch;min-width:0}
-@media (min-width:960px) {
-  .hard-skill-national-top {grid-template-columns:minmax(0,1.05fr) minmax(0,1fr)}
-  .hard-skill-national-top .hard-skill-kpis {grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (min-width:1200px) {
+  .hard-skill-national-top {grid-template-columns:minmax(0,7fr) minmax(0,3fr)}
 }
 .hard-skill-grid,.hard-skill-training-summary {display:grid;gap:12px;min-width:0}
 .hard-skill-grid {grid-template-columns:minmax(0,2fr) minmax(210px,1fr);align-items:stretch}
@@ -1655,6 +1654,15 @@ details.canvas-learning-report:not([open]) > .canvas-learning-body {display:none
 .hard-skill-analytics-card .hard-skill-channel-tags {display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;padding-top:0;border-top:0}
 .hard-skill-analytics-card .hard-skill-channel-tag {padding:2px 6px;gap:4px;font-size:10.5px}
 .hard-skill-analytics-card {display:grid;grid-template-rows:auto 1fr;min-width:0;height:100%;padding:0;overflow:hidden}
+.hard-skill-national-details {margin-top:10px;border:1px solid #315a83;border-radius:10px;background:#fff;overflow:hidden}
+.hard-skill-national-details > summary {padding:11px 14px;cursor:pointer;color:var(--canvas-text);font-size:13px;font-weight:800}
+.hard-skill-national-details > summary span {margin-left:8px;color:var(--canvas-muted);font-size:11px;font-weight:600}
+.hard-skill-national-details-body {padding:0 12px 12px}
+.hard-skill-national-details-body > p {margin:0 0 8px;color:var(--canvas-muted);font-size:11px}
+.hard-skill-national-details-body > .btn {margin-bottom:10px}
+.hard-skill-national-details-body .hard-skill-analytics-table-wrap {max-height:360px;overflow:auto;border:1px solid #315a83;border-radius:8px}
+.hard-skill-national-details-body .hard-skill-analytics-table thead th {position:sticky;top:0;z-index:1;background:#e1edf8}
+.hard-skill-national-details-body .hard-skill-analytics-table tbody th {white-space:normal;overflow-wrap:anywhere}
 .hard-skill-channel-links {display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
 .hard-skill-channel-links .btn {display:inline-flex;align-items:center;gap:6px;color:var(--channel-dark);font-weight:800}
 .hard-skill-metric-channel {display:inline-flex;align-items:center;gap:6px;color:var(--channel-dark,var(--canvas-text))}
@@ -1753,6 +1761,16 @@ details.canvas-learning-report:not([open]) > .canvas-learning-body {display:none
 .hard-skill-site-rankings > :first-child .hard-skill-slide-table td {text-align:start}
 .hard-skill-site-support,.hard-skill-site-notes {display:grid;gap:8px}
 .hard-skill-site-support {grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr))}
+.hard-skill-site-only-tables {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;min-width:0;align-items:stretch}
+.hard-skill-site-only-tables > .hard-skill-slide-card {min-width:0}
+.hard-skill-site-only-tables .hard-skill-slide-table {font-size:13px}
+.hard-skill-site-only-tables .hard-skill-slide-table :is(th,td) {padding:9px 10px;border:1px solid #315a83;white-space:normal;overflow-wrap:anywhere}
+.hard-skill-site-only-tables .hard-skill-slide-table thead th {background:#b50026;color:#fff}
+.hard-skill-site-only-tables .hard-skill-slide-table :is(th,td):not(:first-child) {text-align:center}
+.hard-skill-site-only-tables .hard-skill-slide-table tbody td:last-child {font-weight:800}
+@media (max-width:1100px) {
+ .hard-skill-site-only-tables {grid-template-columns:minmax(0,1fr)}
+}
 .hard-skill-site-notes {grid-template-columns:repeat(auto-fit,minmax(min(100%,225px),1fr))}
 .hard-skill-site-notes ul {margin:0;padding:8px 10px 9px 25px;font-size:11px;line-height:1.45}
 .hard-skill-site-notes li + li {margin-top:4px}
@@ -2925,10 +2943,6 @@ button.canvas-quadrant-select::after {
 .hard-skill-exec-summary .hard-skill-panel.is-summary .hard-skill-highlight-icon {background:#dce7f7;color:#1e3a5f}
 .hard-skill-exec-summary .hard-skill-panel.is-pain .hard-skill-highlight-icon {background:var(--canvas-rose);color:var(--canvas-red-deep)}
 .hard-skill-exec-summary .hard-skill-panel.is-action .hard-skill-highlight-icon {background:#d2f0de;color:#166534}
-.hard-skill-exec-source {margin:0 0 10px;color:var(--canvas-muted);font-size:12px;font-weight:700}
-.hard-skill-exec-reference {margin:0 12px 12px;padding:10px 12px;border:1px solid #c5d7ee;border-radius:10px;background:#fff}
-.hard-skill-exec-reference h6 {margin:0 0 6px;color:var(--canvas-text);font-size:13px;font-weight:800}
-.hard-skill-exec-reference p {margin:0;font-size:12px;line-height:1.5;color:var(--canvas-text)}
 @media (max-width:900px) {
   .canvas-ask-exec-grid,.hard-skill-exec-summary .hard-skill-exec-cols {grid-template-columns:1fr}
 }

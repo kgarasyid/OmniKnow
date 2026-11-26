@@ -1530,7 +1530,8 @@ function ctpExecutiveDashboard(agents, trial=false) {
    ? `${number.format(training.attendance)} kehadiran · ${number.format(training.sessions)} sesi` : trainingNote);
   const shortcuts = ctp==='All CTPs' ? dashboardNationalShortcuts() : '';
   const nationalMap = ctp==='All CTPs' && dashboardHasLocalMap() ? dashboardNationalMapPanel(csrMonth || reportMonth,askPeriod) : '';
-  return `${nationalMap}${executiveSummaryPanel}${mapDistribution}${shortcuts}<section class="ctp-executive ctp-trial" aria-label="Ringkasan CTP">
+  return `${nationalMap}<div data-dashboard-executive-tab="ask"${dashboardReportTab==='ask'?'':' hidden'}>${executiveSummaryPanel}</div>
+   ${mapDistribution}${shortcuts}<section class="ctp-executive ctp-trial" aria-label="Ringkasan CTP">
    <section class="canvas-kpis" aria-label="KPI dashboard">
     ${multiMonth?'':`<p class="canvas-kpi-period">${el(comparisonPeriod)}</p>`}
     <div class="canvas-kpi-group is-core" role="group" aria-labelledby="canvas-kpi-core-title">

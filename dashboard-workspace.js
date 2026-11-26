@@ -861,6 +861,9 @@ function bindDashboard(){
   const selectReportTab = key=>{
     if (!reportTabs.length) return;
     dashboardReportTab = key;
+    document.querySelectorAll('[data-dashboard-executive-tab]').forEach(panel=>{
+      panel.hidden = panel.dataset.dashboardExecutiveTab!==key;
+    });
     for (const tab of reportTabs) {
       const selected = tab.dataset.dashboardReportTab===key;
       tab.setAttribute('aria-selected',String(selected));

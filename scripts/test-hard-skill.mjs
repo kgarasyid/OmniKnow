@@ -98,8 +98,12 @@ assert.equal(septemberTickets.agentsAfterTraining,false);
 assert.equal(septemberTickets.agents[0].label,'SIAD ••••0003');
 assert.deepEqual(septemberTickets.agentCoverage,{withSiad:3,matched:3,afterTraining:0});
 assert.ok(report.badTickets.every(row=>row.agents===undefined && row.agentCoverage===undefined));
+assert.deepEqual(report.badTickets.find(row=>row.channel==='Call Center').categoryDetails,
+ [{month:'2026-09',service:'Fixed',category:'Kategori fiktif',count:4},
+  {month:'2026-10',service:'Fixed',category:'Kategori fiktif',count:2}]);
 assert.equal(query({channel:'E-Care'}).badTickets[0].count,3);
 assert.equal(query({channel:'E-Care'}).badTickets[0].months[0].count,null);
+assert.equal(query({channel:'E-Care'}).badTickets[0].categoryMonths[0].momPrior,null);
 assert.deepEqual(report.badTickets.slice(1).map(row=>row.serviceTotals.map(({name,count})=>[name,count])),
   [[['Fixed',6],['Mobile',null]],[['Fixed',3],['Mobile',null]]]);
 const performance = query({channel:'Call Center'}).badTickets[0].performance;
@@ -120,7 +124,9 @@ assert.deepEqual(ecarePerformance.performance.services[0].symptoms,[{label:'KIP 
 assert.deepEqual(ecarePerformance.afterTrainingAgents.map(({label,count})=>[label,count]),[['Agen E-Care Fiktif',3]]);
 assert.ok(report.badTickets.every(ticket=>ticket.tiers===undefined && ticket.afterTrainingAgents===undefined));
 assert.deepEqual(bandung[0].categoryMonths[0].months,[{month:'2026-10',count:2}]);
+assert.deepEqual([bandung[0].tableComparison.previous,bandung[0].categoryMonths[0].momPrior,bandung[0].categoryMonths[0].momCurrent],['2026-09',4,2]);
 assert.deepEqual(bandung[0].afterTrainingAgents[0].months,[{month:'2026-10',count:2}]);
+assert.deepEqual([bandung[0].afterTrainingAgents[0].momPrior,bandung[0].afterTrainingAgents[0].momCurrent],[0,2]);
 
 const deepDiveFixture = {
   badTickets:[{channel:'GraPARI',service:'Fixed',month:'2026-10',area:'Area 1',region:'Region Fiktif',
@@ -180,11 +186,13 @@ const novemberCallCenter = novemberQuery({channel:'Call Center'}).badTickets[0];
 assert.equal(novemberCallCenter.count,3);
 assert.deepEqual(novemberCallCenter.performance.services.map(({name,count,months})=>[name,count,months]),
   [['Mobile',3,['2026-11']]]);
+assert.deepEqual(novemberCallCenter.categoryMonths,[]);
 assert.equal(novemberQuery({channel:'Call Center',unit:'CC Semarang'}).badTickets[0].performance.services[0].count,3);
 const novemberEcare = novemberQuery({channel:'E-Care'}).badTickets[0];
 assert.equal(novemberEcare.count,4);
 assert.deepEqual(novemberEcare.performance.services.map(({name,count,sites})=>[name,count,sites.map(site=>site.key)]),
   [['Mobile',4,['bandung']]]);
+assert.deepEqual(novemberEcare.categoryMonths,[]);
 assert.equal(novemberQuery({channel:'E-Care',unit:'CC Semarang'}).badTickets[0].performance.services[0].count,0);
 
 const octoberReport = query({from:'2026-10-01'});
