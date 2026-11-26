@@ -1039,6 +1039,7 @@ function bindDashboardHardSkill() {
  const redraw = (focusId='')=>{
   const scroll = mount.querySelector('.hard-skill-chart')?.scrollLeft || 0;
   mount.innerHTML = dashboardHardSkillBody();
+  alignNumericTableCells(mount);
   const chart = mount.querySelector('.hard-skill-chart');
   if (chart) chart.scrollLeft = scroll;
   if (focusId) document.getElementById(focusId)?.focus({preventScroll:true});
@@ -1161,6 +1162,7 @@ function bindDashboardHardSkill() {
    }
    hardSkillGrapariDrills.set(service,path);
    overview.innerHTML = hardSkillGrapariOverview(report,hardSkillMoM());
+   alignNumericTableCells(overview);
    return;
   }
   const drillButton = event.target.closest('[data-hard-skill-gra-drill]');
@@ -1181,6 +1183,7 @@ function bindDashboardHardSkill() {
    }
    hardSkillGrapariDrills.set(service,path);
    overview.innerHTML = hardSkillGrapariOverview(report,hardSkillMoM());
+   alignNumericTableCells(overview);
    const next = action==='sort' ? 'sort' : path.region ? 'back' : 'region';
    (overview.querySelector(`[data-hard-skill-gra-drill="${next}"]`) || overview.querySelector('[data-hard-skill-gra-empty]'))?.focus();
    return;

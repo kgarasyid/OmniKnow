@@ -55,4 +55,28 @@ function makeDashboardWorkbook(sheets){
   sheets.forEach((s,i)=>{const keys=[...new Set(s.rows.flatMap(r=>Object.keys(r)))];if(!keys.length)keys.push('No matching records');const data=[keys,...s.rows.map(r=>keys.map(k=>r[k]??''))];files[`xl/worksheets/sheet${i+1}.xml`]=`<worksheet xmlns="${ns}"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${keys.map((_,j)=>`<col min="${j+1}" max="${j+1}" width="24" customWidth="1"/>`).join('')}</cols><sheetData>${data.map((row,r)=>`<row r="${r+1}">${row.map((v,c)=>typeof v==='number'&&Number.isFinite(v)?`<c r="${col(c)}${r+1}" t="n"><v>${v}</v></c>`:`<c r="${col(c)}${r+1}" t="inlineStr"><is><t xml:space="preserve">${workbookXmlText(v)}</t></is></c>`).join('')}</row>`).join('')}</sheetData><autoFilter ref="A1:${col(keys.length-1)}${data.length}"/></worksheet>`});return zipWorkbook(files);
 }
 function dashboardWorkbookSheets(){const original=dashboardSub[5];const sheets=['Agents','Programs','Activities','VoC'].map(name=>{dashboardSub[5]=name;return {name,rows:dashFilteredRaw(filtered())}});dashboardSub[5]=original;sheets.push({name:'Report scope',rows:[{scope:exportScope(),table_search:dashboardRawQuery||'All',source:'Showcase data where labelled',generated:new Date().toISOString()}]});return sheets}
-function downloadDashboardExcel(){savePdfBlob(makeDashboardWorkbook(dashboardWorkbookSheets()),'OmniKnow-Raw-Data.xlsx');notify('Excel workbook download requested: all datasets with current filters and table search')}
+async function downloadDashboardExcel(){
+ const sheets=dashboardWorkbookSheets();
+ let askUnavailable=false;
+ if (page===0 && localAskReport && category==='All Categories' && !q) {
+  const query=new URLSearchParams(localLearningQuery());
+  query.set('view','roster');
+  query.set('export','all');
+  try {
+   const response=await fetch('/api/local-ask-drilldown?'+query);
+   if (!response.ok) throw new Error('ASK detail unavailable');
+   const result=await response.json();
+   if (!Array.isArray(result.rows) || result.rows.length!==result.total) throw new Error('ASK export incomplete');
+   sheets.unshift({name:'ASK CSR',rows:result.rows.map(row=>({
+    Nama_CSR:row.name,CTP:row.channel,Area:row.area,Region:row.region,Unit:row.unit,
+    Attitude:row.attitude,Skill:row.skill,Knowledge:row.knowledge,ASK_Berbobot:row.score,
+    Periode:row.month||`${reportFrom} – ${reportTo}`,Sumber:'Workbook ASK lokal'
+   }))});
+  } catch (error) {askUnavailable=true;}
+ }
+ sheets[sheets.length-1].rows[0].ask_export=sheets.some(sheet=>sheet.name==='ASK CSR')
+  ? 'ASK CSR mengikuti filter periode, CTP, area, region, dan unit.'
+  : 'ASK CSR tidak disertakan; filter kategori dan pencarian agen hanya berlaku untuk roster aplikasi.';
+ savePdfBlob(makeDashboardWorkbook(sheets),'OmniKnow-Data-Terfilter.xlsx');
+ notify(askUnavailable?'Excel tabel aplikasi terfilter disiapkan; data ASK rinci belum tersedia.':'Excel sesuai filter berhasil disiapkan');
+}

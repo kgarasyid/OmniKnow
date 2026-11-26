@@ -2056,7 +2056,9 @@ button.canvas-ask-intervention:focus-visible {outline:2px solid var(--interventi
 }
 .canvas-ask-performance tr.is-total {background:var(--canvas-tint);font-weight:750}
 .canvas-ask-performance tr.is-total th {background:var(--canvas-tint);font-weight:inherit}
-.canvas-ask-performance-prior {color:var(--canvas-muted)}
+.canvas-ask-performance tr.is-total :is(th,td) {border-top:2px solid #17365d}
+.canvas-ask-performance tr.is-national-total :is(th,td) {border-top-width:3px}
+.canvas-ask-performance tr.is-national-total :is(th,td:last-child) {background:#dce8f4;color:#17365d}
 .canvas-ask-performance .canvas-ask-bar-delta {display:inline;white-space:nowrap;font-size:inherit;font-weight:700}
 .canvas-ask-performance .ask-score-high {background:var(--ask-score-high);color:#174b38}
 .canvas-ask-performance .ask-score-mid {background:var(--ask-score-mid);color:#5c3c00}
@@ -2405,6 +2407,10 @@ button.canvas-quadrant-select::after {
 .canvas-ask-rank-table tbody .canvas-ask-rank-score {background:#edf4fb;color:var(--canvas-text)}
 .canvas-ask-rank-table thead .canvas-ask-rank-prior {width:75px}
 .canvas-ask-rank-table :is(th,td).canvas-ask-rank-prior {text-align:center}
+.canvas-ask-rank-prior strong {font-size:13px}
+.canvas-ask-rank-prior .canvas-ask-rank-move {font-size:12px;font-weight:750}
+.canvas-ask-rank-move.is-up {color:var(--canvas-green)}
+.canvas-ask-rank-move.is-down {color:var(--canvas-red-text)}
 .canvas-ask-rank-move {display:block;color:var(--canvas-muted);font-size:10px;line-height:1.2}
 .canvas-ask-rank-note {margin:0 0 9px;color:var(--canvas-muted);font-size:11px}
 .canvas-ask-rank-location {display:none}
@@ -3031,3 +3037,20 @@ button.canvas-quadrant-select::after {
 .canvas-executive-disclosure[open] .canvas-executive-control svg {transform:rotate(180deg)}
 .canvas-executive-disclosure[open] .canvas-executive-show,.canvas-executive-disclosure:not([open]) .canvas-executive-hide {display:none}
 .canvas-executive-body {padding-top:8px}
+
+.canvas-ask-performance-scroll {border-color:#17365d}
+.canvas-ask-performance-scroll table.is-monthly {min-width:900px;table-layout:fixed}
+.workspace-theme .canvas-ask-performance-scroll table :is(th,td) {border:1px solid #17365d}
+.canvas-ask-performance tr.is-total :is(th,td) {font-weight:800}
+
+/* Keep data cells legible while preserving the boxed table layout. */
+.workspace-theme table :is(th,td) {border:1px solid #d7e2ee}
+.workspace-theme table .numeric-data-cell {text-align:center;font-size:13px;font-weight:650;font-variant-numeric:tabular-nums}
+.workspace-theme .canvas-ask-rank-table :is(th,td):is(:first-child,:nth-child(n+5)) {text-align:center}
+.workspace-theme .canvas-ask-rank-table tbody :is(td:first-child,td:nth-child(n+5)) {font-size:13px}
+.canvas-ask.is-national .canvas-ask-summary-metric :is(h4,.canvas-ask-summary-value > span,.canvas-ask-summary-low,.canvas-ask-summary-low > span,.canvas-ask-national-mom) {font-size:clamp(13px,1.2vw,16px)}
+.canvas-ask-national-mom {align-items:center;flex-wrap:wrap;line-height:1.35}
+.canvas-ask-national-delta {display:inline-flex;flex-direction:column;align-items:center;gap:1px;white-space:nowrap;font-size:14px}
+.canvas-ask-national-delta-icon {font-size:17px;line-height:1}
+.canvas-quadrant-gridlines > span {border-top:0}
+.canvas-pass-compare-plot::before,.hard-skill-gra-plot-bars {background-image:none}

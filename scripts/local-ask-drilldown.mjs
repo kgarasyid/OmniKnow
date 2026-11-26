@@ -65,6 +65,7 @@ export function localAskDrilldown(data, query) {
   const sort = query.get('sort') ?? 'name-asc';
   const offsetValue = query.get('offset') ?? '0';
   const offset = Number(offsetValue);
+  const exportAll = view === 'roster' && query.get('export') === 'all';
   if (!isDay(from) || !isDay(to) || from > to || (channel && !channels.has(channel)) ||
       !['ranking', 'quadrant', 'dimension', 'roster'].includes(view) ||
       (view !== 'ranking' && (!/^\d+$/.test(offsetValue) || !Number.isSafeInteger(offset) || !nameOrders.has(sort))) ||
@@ -130,8 +131,9 @@ export function localAskDrilldown(data, query) {
     const ranking = (direction, current = rows, previous = previousRows, take = limit) => {
       const order = (a, b) => direction * (a.score - b.score) || byName(a, b) || collator.compare(a.id,b.id);
       const previousRanks = new Map(previous.toSorted(order).map(({id},index)=>[id,index+1]));
+      const previousScores = new Map(previous.map(({id,score})=>[id,score]));
       return current.toSorted(order).slice(0, take).map(({id,...row}) => comparison
-        ? {...row, previousRank:previousRanks.get(id) ?? null} : row);
+        ? {...row, previousRank:previousRanks.get(id) ?? null, previousScore:previousScores.get(id) ?? null} : row);
     };
     const result = {total:rows.length, top:ranking(-1), ...(comparison ? {comparison} : {})};
     if (query.get('bottomBy') === 'ctp') {
@@ -181,10 +183,20 @@ export function localAskDrilldown(data, query) {
   }
   let listRows = rows;
   let options;
+  let comparison;
   if (view==='roster') {
+    if (startMonth===endMonth && query.get('compare')==='previous') {
+      const previousDate = new Date(startMonth+'-01T00:00:00Z');
+      previousDate.setUTCMonth(previousDate.getUTCMonth()-1);
+      const month = previousDate.toISOString().slice(0,7);
+      const previousRows = rowsForMonths(monthsInScope(data.placements,month,month));
+      const previousScores = new Map(previousRows.map(row=>[row.id,row.score]));
+      comparison = {month,available:previousRows.length>0};
+      listRows = rows.map(row=>({...row,previousScore:previousScores.get(row.id) ?? null}));
+    }
     const listArea = normalize(query.get('listArea'));
     const listUnit = normalize(query.get('listUnit'));
-    const rosterRows = rows.map(row=>({...row,areaSite:rosterAreaSite(row)}));
+    const rosterRows = listRows.map(row=>({...row,areaSite:rosterAreaSite(row)}));
     const areaRows = rosterRows.filter(row=>!listArea || normalize(row.areaSite)===listArea);
     const values = (records,key)=>[...new Set(records.map(row=>row[key]).filter(Boolean))].sort(collator.compare);
     options = {areas:values(rosterRows,'areaSite'),units:values(areaRows,'unit')};
@@ -199,5 +211,5 @@ export function localAskDrilldown(data, query) {
     const order = byScore ? direction*(scoreA-scoreB) || byName(a,b) : direction*byName(a,b);
     return order || collator.compare(a.month ?? '',b.month ?? '') || collator.compare(a.id ?? '',b.id ?? '');
   };
-  return {total:listRows.length,offset,...(options?{options}:{}),rows:listRows.sort(sortRows).slice(offset,offset+pageSize).map(({id,...row})=>row)};
+  return {total:listRows.length,offset,...(options?{options}:{}),...(comparison?{comparison}:{}),rows:listRows.sort(sortRows).slice(offset,exportAll?undefined:offset+pageSize).map(({id,...row})=>row)};
 }
