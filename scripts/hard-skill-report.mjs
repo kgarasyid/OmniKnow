@@ -302,14 +302,35 @@ function badTicketReport(data, query, months, reportArea) {
     const contactServices = name === 'GraPARI' ? [] : sitePerformance(all,scoped,deepDive ? agents : null);
     const localServices = contactServices.filter(service => service.count != null);
     const siteDetails = () => {
+      const workbookRows = current.filter(row => row.service === 'Fixed');
+      const workbookAgents = postTraining.filter(row => row.service === 'Fixed');
+      const workbookMonths = new Set(months.filter(month => knownServices(month).includes('Fixed')));
+      const workbookCategories = breakdown(workbookRows,row => row.category).slice(0,5);
+      const currentMonth = months.at(-1);
+      const comparisonMonth = previousMonth(currentMonth);
+      const comparisonAvailable = knownServices(comparisonMonth).includes('Fixed');
+      const comparisonRows = scoped.filter(row => row.service === 'Fixed' && row.month === comparisonMonth);
+      const comparisonAgents = (data.badTicketAgents || []).filter(row => row.channel === name &&
+        row.service === 'Fixed' && row.month === comparisonMonth && row.after && matchesLocation(row));
+      const monthMovement = (label,selected,earlier) => ({
+        momCurrent:sum(selected.filter(row => row.month === currentMonth && row.category === label)),
+        momPrior:comparisonAvailable ? sum(earlier.filter(row => row.category === label)) : null,
+      });
       const tierSites = [...new Set(current.map(row => row.site).filter(Boolean))].sort(collator.compare);
       const siteTotals = tierSites.map(site=>
         [...groupBy(agents.filter(row=>siteLabel(row)===site),row=>row.agent).values()].map(sum));
       const byTier = (min,max) => siteTotals.map(counts=>
         counts.length ? counts.filter(count=>count>=min && count<=max).length : null);
       return {
-        categoryMonths:categories.map(row=>({...row,months:monthCounts(current.filter(item=>item.category===row.label),covered)})),
-        afterTrainingAgents:topAgents(postTraining,5,entries=>({months:monthCounts(entries,covered)})),
+        tableComparison:{current:currentMonth,previous:comparisonMonth},
+        categoryMonths:workbookCategories.map(row=>({...row,
+          months:monthCounts(workbookRows.filter(item=>item.category===row.label),workbookMonths),
+          ...monthMovement(row.label,workbookRows,comparisonRows)})),
+        afterTrainingAgents:topAgents(workbookAgents,5,entries=>({
+          months:monthCounts(entries,workbookMonths),
+          momCurrent:sum(entries.filter(row=>row.month===currentMonth)),
+          momPrior:comparisonAvailable ? sum(comparisonAgents.filter(row=>row.agent===entries[0].agent)) : null,
+        })),
         tierSites,
         tiers:siteTotals.some(counts=>counts.length) ? [
           ['Tier 3','11+','Prioritaskan review',...byTier(11,Infinity)],
@@ -342,6 +363,11 @@ function badTicketReport(data, query, months, reportArea) {
         },
       } : {}),
       ...(!channel ? {
+        categoryDetails:[...groupBy(current,row=>JSON.stringify([row.month,row.service,row.category]))]
+          .map(([,entries])=>({month:entries[0].month,service:entries[0].service,
+            category:entries[0].category || 'Kategori belum tercatat',count:sum(entries)}))
+          .sort((a,b)=>a.month.localeCompare(b.month) || collator.compare(a.service,b.service) ||
+            b.count-a.count || collator.compare(a.category,b.category)),
         serviceTotals:name === 'GraPARI' ? ticketServices.map(service => {
           const {count,months,prior} = serviceReport(service,all,agents,true);
           const covered = months.filter(row => row.count !== null).map(row => row.month);

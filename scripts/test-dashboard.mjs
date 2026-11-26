@@ -34,6 +34,11 @@ for(let tab=0;tab<6;tab++){
 assert.deepEqual(run('DASH_CHANNELS.map(channel=>channel.label)'),['Nasional','GraPARI','Call Center','E-Care']);
 assert.equal((run('dashboardTabs()').match(/data-dash-channel=/g)||[]).length,4);
 assert.doesNotMatch(run('dashboardTabs()'),/ASK Performance|Training Reguler|Test Evaluation|Raw Data/);
+vm.runInContext("dashboardReportTab='training'",context);
+const trainingTabMarkup = run('ctpExecutiveDashboard(filtered(),true)');
+assert.match(trainingTabMarkup,/data-dashboard-executive-tab="ask" hidden/);
+assert.doesNotMatch(trainingTabMarkup,/data-dashboard-executive-tab="training"/);
+vm.runInContext("dashboardReportTab='ask'",context);
 const ticketMarkup = `hardSkillBadTickets([{channel:'GraPARI',count:3,months:[{month:'2026-10',count:3}],
   prior:2,locations:[{label:'Area Fiktif',count:3}],regions:[{label:'Region Fiktif',count:3}],
   units:[{label:'Unit Fiktif',count:3}],categories:[{label:'Kategori fiktif',count:3}],
@@ -43,15 +48,23 @@ const ticketMarkup = `hardSkillBadTickets([{channel:'GraPARI',count:3,months:[{m
 const nationalTickets = run(`hardSkillNationalAnalytics({badTickets:DASH_CHANNELS.slice(1).map(({label:channel})=>({
   channel,months:[{month:'2026-10',count:3}],
   serviceTotals:[{name:'Fixed',count:3,prior:2,months:['2026-10']}],
+  categoryDetails:[{month:'2026-10',service:'Fixed',category:'Kategori fiktif',count:3}],
 }))},'Oktober 2026',{current:'2026-10',previous:'2026-09'})`);
 assert.match(nationalTickets,/Performance Bad Ticket/);
 assert.match(nationalTickets,/Bad Ticket Fixed[\s\S]*Jumlah tiket[\s\S]*<strong>3<\/strong>[\s\S]*aria-label="Naik 1 tiket">▲ 1/);
 assert.match(nationalTickets,/Bad Ticket Mobile/);
+assert.match(nationalTickets,/Lihat data Bad Ticket lengkap[\s\S]*Unduh Excel sesuai filter[\s\S]*Kategori fiktif/);
+assert.match(nationalTickets,/Top 5 Bad Ticket Nasional[\s\S]*Kategori fiktif[\s\S]*<strong>9<\/strong>/);
 assert.doesNotMatch(nationalTickets,/TNPS GraPARI per Area/);
 assert.doesNotMatch(nationalTickets,/Top 5 Kategori|Top 5 Agen|Ringkasan Bad Ticket per CTP/);
 for (const channel of ['GraPARI','Contact Center','E-Care']) {
   assert.ok(nationalTickets.includes(`data-hard-skill-channel="${channel}"`));
 }
+const ticketWorkbookSheets = run(`hardSkillNationalWorkbookSheets({badTickets:[{channel:'Call Center',
+ categoryDetails:[{month:'2026-10',service:'Fixed',category:'Kategori fiktif',count:3}],
+ serviceTotals:[{name:'Fixed',count:3,prior:2}]}]})`);
+assert.equal(ticketWorkbookSheets[0].rows[0].Jumlah_tiket,3);
+assert.equal(ticketWorkbookSheets[1].rows[0].Pembanding_bulan_sebelumnya,2);
 const hardSkillSummary = run(`hardSkillKpis({
  totals:{attendance:12,participants:10,sessions:4},methods:{Offline:{sessions:2},Online:{sessions:2}},
  trainingBreakdowns:{bootcamp:{participants:7,sessions:2},refreshment:{programs:{participants:5}}},
@@ -64,10 +77,47 @@ assert.match(hardSkillSummary,/class="dashboard-mom-value is-up" aria-label="Tur
 assert.equal(run(ticketMarkup),'');
 vm.runInContext("ctp='GraPARI'",context);
 const ticketDetail = run(ticketMarkup);
-assert.match(ticketDetail,/Per area[\s\S]*Per region[\s\S]*Top 10 Unit GraPARI[\s\S]*Top 5 Kategori Bad Ticket/);
-assert.match(ticketDetail,/Belum ada tiket yang terverifikasi[\s\S]*Top 5 Agen dengan Bad Ticket · Semua Agen Tercatat/);
-assert.match(ticketDetail,/3 tiket unik dengan SIAD[\s\S]*2 tiket bisa dicocokkan/);
+assert.match(ticketDetail,/Performance Bad Ticket Fixed GraPARI[\s\S]*Performance Bad Ticket Mobile GraPARI/);
+assert.doesNotMatch(ticketDetail,/Temuan workbook Bad Ticket|hard-skill-ticket-channels/);
 assert.doesNotMatch(ticketDetail,/data-hard-skill-channel=/);
+vm.runInContext("ctp='Contact Center'",context);
+const callCenterTickets = run(`hardSkillBadTickets([{channel:'Call Center',months:[{month:'2026-10',count:3}],
+ tableComparison:{current:'2026-10',previous:'2026-09'},
+ categoryMonths:[{label:'Kategori fiktif',count:3,months:[{month:'2026-10',count:3}],momPrior:5,momCurrent:3}],
+ afterTrainingAgents:[{label:'Agen fiktif',location:'Site 1 fiktif',count:2,months:[{month:'2026-10',count:2}],momPrior:1,momCurrent:2}],
+ performance:{services:[]}}],'Oktober 2026',null,{})`);
+assert.match(callCenterTickets,/Call Center Bad Ticket Performance/);
+assert.match(callCenterTickets,/Top 5 Bad Ticket per Category[\s\S]*Kategori fiktif[\s\S]*Top 5 Agent Most Bad Ticket After Training[\s\S]*Agen fiktif/);
+assert.match(callCenterTickets,/Periode Input · Klasifikasi Unit Creator · Kategori Bad Tiket/);
+assert.match(callCenterTickets,/<th scope="col">Sept<\/th>[\s\S]*<th scope="col">Okt<\/th>[\s\S]*<th scope="col">MoM<\/th>/);
+assert.doesNotMatch(callCenterTickets,/<th scope="col">Total<\/th>/);
+assert.match(callCenterTickets,/aria-label="Turun 2 tiket">▼ 2/);
+assert.match(callCenterTickets,/aria-label="Naik 1 tiket">▲ 1/);
+const rangedTickets = run(`hardSkillSitePerformance({channel:'Call Center',
+ months:[{month:'2026-09'},{month:'2026-10'}],tableComparison:{current:'2026-10',previous:'2026-09'},
+ categoryMonths:[{label:'Kategori rentang fiktif',count:8,months:[{count:5},{count:3}],momPrior:5,momCurrent:3}],
+ afterTrainingAgents:[]},'Sept–Okt 2026',null)`);
+assert.equal((rangedTickets.match(/<th scope="col">Sept<\/th>/g)||[]).length,1);
+assert.equal((callCenterTickets.match(/class="hard-skill-slide-card"/g)||[]).length,2);
+assert.match(callCenterTickets,/Bad Ticket Fixed[\s\S]*Bad Ticket Mobile[\s\S]*Top 5 Bad Ticket per Category/);
+assert.doesNotMatch(callCenterTickets,/Top 5 KIP Symptom|Tier Volume Agen/);
+assert.doesNotMatch(callCenterTickets,/Call Center Training Hardskill BadTicket|Documentation Aug/);
+vm.runInContext("ctp='E-Care'",context);
+const eCareTickets = run(`hardSkillBadTickets([{channel:'E-Care',months:[{month:'2026-10',count:1}],
+ categoryMonths:[{label:'Kategori E-Care fiktif',count:1,months:[{month:'2026-10',count:1}]}],
+ afterTrainingAgents:[]}],'Oktober 2026',null,{})`);
+assert.match(eCareTickets,/E-Care Bad Ticket Performance[\s\S]*Kategori E-Care fiktif/);
+assert.match(eCareTickets,/Bad Ticket Fixed[\s\S]*Bad Ticket Mobile[\s\S]*Top 5 Bad Ticket per Category/);
+assert.doesNotMatch(eCareTickets,/Top 5 KIP Symptom|Tier Volume Agen/);
+assert.doesNotMatch(await readFile(new URL('dashboard-hard-skill.js',root),'utf8'),/Apa yang Berubah\?/);
+vm.runInContext("ctp='GraPARI'",context);
+const grapariTrainingNotes = run(`hardSkillGrapariNotes({totals:{sessions:2,participants:3},
+ trainingBreakdowns:{bootcamp:{participants:2,locations:[{label:'Area fiktif',participants:2}]},
+ refreshment:{programs:{participants:1}}},priorTrainingBreakdowns:{bootcamp:{participants:4}}})`);
+assert.match(grapariTrainingNotes,/Executive Training · GraPARI[\s\S]*Jangkauan Training[\s\S]*Bootcamp Offline[\s\S]*Refreshment Online/);
+assert.match(grapariTrainingNotes,/Peserta Bootcamp turun 2 orang/);
+assert.doesNotMatch(grapariTrainingNotes,/Fixed|Mobile|Referensi PPT/);
+assert.equal((grapariTrainingNotes.match(/class="hard-skill-panel is-/g)||[]).length,3);
 vm.runInContext("selectDashboardChannel('GraPARI');ctpScope='Area 1';dashboardUnit=dashboardUnitKey(filtered()[0]);selectDashboardChannel('Contact Center')",context);
 assert.equal(run('ctpScope'),'All locations');
 assert.equal(run('dashboardUnit'),'');

@@ -38,6 +38,7 @@ let dashboardReportTab = 'ask';
 const dashboardAskPassDisclosures = new Map();
 const dashboardOpenKpis = new Set();
 const dashboardLearningOpen = new Set();
+const dashboardLearningClosed = new Set();
 let dashboardAskDrillState = null;
 let dashboardAskQuadrantState = null;
 const DASH_PROGRAMS=['Hardskill','Soft skill','ACS Booster','Bad Ticket','Reguler Try Out'];
@@ -193,7 +194,11 @@ function dashboardLocationControls(trial=false) {
   const workbookArea = workbook.filter(([,parts])=>dashboardMatchesReportArea(parts[0],parts[1]) &&
     (ctpScope==='All locations' || parts[1]===ctpScope));
   const workbookRegion = workbookArea.filter(([,parts])=>region==='All Regions' || parts[2]===region);
-  const unitOptions = (workbook.length ? workbookRegion.map(([key,parts])=>[key,parts[4]]) : [...units].map(([key,{name,agent}])=>[
+  const workbookNames = new Map();
+  const unitNameKey = name=>String(name || '').trim().toLocaleLowerCase('id-ID');
+  for (const [,parts] of workbookRegion) workbookNames.set(unitNameKey(parts[4]),(workbookNames.get(unitNameKey(parts[4])) || 0)+1);
+  const unitOptions = (workbook.length ? workbookRegion.map(([key,parts])=>[key,
+    workbookNames.get(unitNameKey(parts[4]))>1 ? [parts[4],parts[0],parts[2],parts[3]].filter(Boolean).join(' · ') : parts[4]]) : [...units].map(([key,{name,agent}])=>[
     key,
     nameCounts.get(name)>1 ? [name,agent.ctp,agentLocation(agent),agent.region,agent.unitId].filter(Boolean).join(' · ') : name,
   ])).sort((a,b)=>sort(a[1],b[1]));
@@ -280,10 +285,15 @@ const dashboardTrialJakartaMonth = new Intl.DateTimeFormat('en-CA',{year:'numeri
 const dashboardTrialShortMonthFormat = new Intl.DateTimeFormat('en-US',{month:'short',year:'numeric',timeZone:'UTC'});
 const dashboardTrialMonthDate = month=>new Date(month+'-01T00:00:00Z');
 const dashboardTrialFormatMonth = month=>dashboardTrialMonthFormat.format(dashboardTrialMonthDate(month));
-const dashboardShortComparison = month=>`vs ${dashboardTrialShortMonth.format(dashboardTrialMonthDate(month))} ${month.slice(0,4)}`;
+const dashboardShortMonth = month=>{
+  const label = dashboardTrialShortMonth.format(dashboardTrialMonthDate(month));
+  return label==='Sep' ? 'Sept' : label;
+};
+const dashboardShortComparison = month=>`vs ${dashboardShortMonth(month)} ${month.slice(0,4)}`;
 
 function dashboardCompareMonths(current,previous) {
-  return `Comparison Period: ${dashboardTrialShortMonthFormat.format(dashboardTrialMonthDate(current))} vs ${dashboardTrialShortMonthFormat.format(dashboardTrialMonthDate(previous))} (MoM)`;
+  const label = month=>dashboardTrialShortMonthFormat.format(dashboardTrialMonthDate(month)).replace(/^Sep\b/,'Sept');
+  return `Comparison Period: ${label(current)} vs ${label(previous)} (MoM)`;
 }
 
 function dashboardTrialCurrentMonth(date=new Date()) {
@@ -481,7 +491,7 @@ function dashboardWorkspace() {
     4:['Pre Test','Post Test','Reguler Try Out'],
     5:['Agents','Programs','Activities','VoC'],
   };
-  const actions = `<div class="di-actions">${canTrial?`<button type="button" class="btn" id="dashboardTrialToggle">${trial?'Tampilan sebelumnya':'Coba dashboard satu halaman'}</button>`:''}${showExecutiveCards||trial?'':'<span class="dw-demo">SHOWCASE DATA</span>'}${dashboardTab===5?'<button class="btn" data-download-excel>Download Excel</button>':'<button class="btn" data-download-page>Download PDF</button>'}</div>`;
+  const actions = `<div class="di-actions">${canTrial?`<button type="button" class="btn" id="dashboardTrialToggle">${trial?'Tampilan sebelumnya':'Coba dashboard satu halaman'}</button>`:''}${showExecutiveCards||trial?'':'<span class="dw-demo">SHOWCASE DATA</span>'}<button class="btn" data-download-excel>Download Excel</button>${dashboardTab===5?'':'<button class="btn" data-download-page>Download PDF</button>'}</div>`;
   const location = dashboardLocationLabel();
   const national = ctp==='All CTPs' && location==='Nasional';
   const periodLabel = trial ? dashboardTrialPeriodLabel() : '';
@@ -575,6 +585,7 @@ function bindDashboardAskDrilldown(report) {
     scope.set('to',lastDay.toISOString().slice(0,10));
   }
   const scopeKey = `${dimensionScope}|${scope}`;
+  const rosterMoM = scope.get('from')?.slice(0,7)===scope.get('to')?.slice(0,7);
   const score = new Intl.NumberFormat('id-ID',{maximumFractionDigits:1});
   const count = new Intl.NumberFormat('id-ID');
   const unitLabel = row=>[row.unit,row.area || row.region || row.channel].filter(Boolean).join(' · ') || '—';
@@ -598,24 +609,25 @@ function bindDashboardAskDrilldown(report) {
     const bottomBy = rank.dataset.askRankingBottom || '';
     const priorMonth = rank.dataset.askRankingPrior;
     const priorShort = rank.dataset.askRankingPriorShort;
-    const previousPosition = (previousRank,position,available,cutoff=limit)=>{
+    const previousPosition = (previousScore,currentScore,available)=>{
       if (!available) return '—';
-      if (previousRank==null) return '<small class="canvas-ask-rank-move">Tanpa skor</small>';
-      const change = previousRank-position;
-      const movement = previousRank>cutoff ? 'Baru masuk' : change>0 ? '↑ '+change : change<0 ? '↓ '+Math.abs(change) : '→ Tetap';
-      return `<strong>#${previousRank}</strong><small class="canvas-ask-rank-move">${movement}</small>`;
+      if (!Number.isFinite(previousScore)) return '<small class="canvas-ask-rank-move">Belum dinilai bulan lalu</small>';
+      const delta = currentScore-previousScore;
+      const symbol = delta>0?'▲':delta<0?'▼':'→';
+      const direction = delta>0?'Naik':delta<0?'Turun':'Tetap';
+      return `<strong title="Skor ${el(priorMonth)}">${scoreLabel(previousScore)}</strong><small class="canvas-ask-rank-move ${delta>0?'is-up':delta<0?'is-down':''}" aria-label="${direction} ${scoreLabel(Math.abs(delta))} poin">${symbol} ${scoreLabel(Math.abs(delta))} poin</small>`;
     };
     const rankingTable = (title,rows,comparison,cutoff=limit)=>`<table class="canvas-ask-rank-table" aria-label="${el(title)}">
        <thead><tr><th scope="col">No.</th><th scope="col">Nama CSR</th><th scope="col">Area</th><th scope="col">Unit</th>
         <th scope="col"><abbr title="Attitude">A</abbr></th><th scope="col"><abbr title="Skill">S</abbr></th>
         <th scope="col"><abbr title="Knowledge">K</abbr></th><th scope="col" class="canvas-ask-rank-score">ASK</th>
-        ${priorMonth?`<th scope="col" class="canvas-ask-rank-prior"><abbr title="Peringkat ${el(priorMonth)}">${el(priorShort)}</abbr></th>`:''}</tr></thead>
+        ${priorMonth?'<th scope="col" class="canvas-ask-rank-prior">MoM</th>':''}</tr></thead>
        <tbody>${rows.map((row,index)=>`<tr><td>${index+1}</td><th scope="row">${el(row.name)}
         <small class="canvas-ask-rank-location">${el([row.area || row.channel,row.unit].filter(Boolean).join(' · '))}</small></th>
         <td>${el(row.area || row.channel || '—')}</td><td>${el(row.unit || '—')}</td>
         <td>${scoreLabel(row.attitude)}</td><td>${scoreLabel(row.skill)}</td>
         <td>${scoreLabel(row.knowledge)}</td><td class="canvas-ask-rank-score"><strong>${scoreLabel(row.score)}</strong></td>
-        ${priorMonth?`<td class="canvas-ask-rank-prior">${previousPosition(row.previousRank,index+1,comparison?.available,cutoff)}</td>`:''}</tr>`).join('')}
+        ${priorMonth?`<td class="canvas-ask-rank-prior">${previousPosition(row.previousScore,row.score,comparison?.available)}</td>`:''}</tr>`).join('')}
        </tbody>
       </table>`;
     const rankingCard = (title,rows,comparison)=>`<article><h4>${el(title)}</h4>${rankingTable(title,rows,comparison)}</article>`;
@@ -642,11 +654,14 @@ function bindDashboardAskDrilldown(report) {
     try {
       const result = await request('ranking',{limit,bottomBy,compare:priorMonth?'previous':''});
       if (!rank.isConnected) return;
+      const singleUnitList = !bottomBy && result?.total <= limit;
       const rankingNote = priorMonth ? `<p class="canvas-ask-rank-note">${result?.comparison?.available
-        ? `${el(priorShort)} · “Baru masuk” berarti sebelumnya di luar daftar.${bottomBy==='ctp'?' Posisi Top dan Bottom '+limit+' dihitung dalam tiap CTP.':bottomBy==='location'?' Posisi Top dan Bottom '+limit+' dihitung dalam tiap lokasi.':bottomBy?' Posisi Bottom '+limit+' dihitung dari skor terendah di area masing-masing.':''}`
+        ? `Kolom MoM menunjukkan skor bulan lalu (${el(priorShort.replace(/^vs /,''))}) dan arah perubahan skor dalam poin. CSR dengan skor sama diurutkan menurut nama.${singleUnitList?' Seluruh CSR dinilai di unit ini ditampilkan.':''}${bottomBy==='ctp'?' Daftar dihitung terpisah dalam tiap CTP.':bottomBy==='location'?' Daftar dihitung terpisah dalam tiap lokasi.':bottomBy?' Daftar Bottom dihitung dalam area masing-masing.':''}`
         : `Pembanding ${el(priorMonth)} belum tersedia untuk cakupan ini.`}</p>` : '';
       rank.innerHTML = !result ? '<p>Daftar nama ASK belum diaktifkan di server lokal.</p>'
-        : result.total ? `${rankingNote}<div class="canvas-ask-rank-grid">${bottomBy==='ctp'
+        : result.total ? `${rankingNote}${singleUnitList&&!priorMonth?`<p class="canvas-ask-rank-note">Unit ini memiliki ${count.format(result.total)} CSR dinilai; seluruhnya ditampilkan dalam satu daftar.</p>`:''}<div class="canvas-ask-rank-grid">${singleUnitList
+          ? rankingCard('Semua CSR di unit ini · skor tertinggi ke terendah',result.top,result.comparison)
+          : bottomBy==='ctp'
           ? `${ctpRanks('Top '+limit+' per CTP','top',result.rankingsByCtp)}${ctpRanks('Bottom '+limit+' per CTP','bottom',result.rankingsByCtp)}`
           : bottomBy==='location'
           ? `${locationRanks('Top '+limit+' per Lokasi','top',result.rankingsByLocation)}${locationRanks('Bottom '+limit+' per Lokasi','bottom',result.rankingsByLocation)}`
@@ -654,6 +669,7 @@ function bindDashboardAskDrilldown(report) {
           ? areaBottom(result.bottomByArea)
           : rankingCard('Bottom '+limit,result.bottom,result.comparison)}`}</div>`
         : '<p>Belum ada skor ASK untuk cakupan ini.</p>';
+      alignNumericTableCells(rank);
     } catch {
       delete rank.dataset.loaded;
       if (rank.isConnected) rank.textContent = 'Peringkat ASK belum bisa dimuat.';
@@ -689,7 +705,7 @@ function bindDashboardAskDrilldown(report) {
       rows.setAttribute('aria-busy','true');
       rows.innerHTML = '<p>Memuat daftar CSR…</p>';
       try {
-        const result = await request(view || (isDimension?'dimension':'quadrant'),{...(filters || (view==='roster'?{channel,listArea,listUnit}:{quadrant:code})),offset,q:query,sort});
+        const result = await request(view || (isDimension?'dimension':'quadrant'),{...(filters || (view==='roster'?{channel,listArea,listUnit,...(rosterMoM?{compare:'previous'}:{})}:{quadrant:code})),offset,q:query,sort});
         if (id!==requestId || !panel.isConnected) return;
         if (result?.options && view==='roster') {
           for (const [control,values,label,value] of [[areaFilter,result.options.areas,'Semua area / site',listArea],[unitFilter,result.options.units,'Semua unit',listUnit]]) {
@@ -699,9 +715,9 @@ function bindDashboardAskDrilldown(report) {
         }
         rows.innerHTML = !result ? '<p>Daftar nama ASK belum diaktifkan di server lokal.</p>'
           : !result.rows.length ? '<p>Tidak ada nama CSR yang cocok.</p>'
-          : `<table><thead><tr><th scope="col">Nama CSR</th>${view==='roster'?'<th scope="col">CTP</th><th scope="col">Area / Site</th>':''}<th scope="col">Unit</th>${multiMonth?'<th scope="col">Bulan penilaian</th>':''}<th scope="col">${isDimension?el({attitude:'Attitude',skill:'Skill',knowledge:'Knowledge'}[filters.dimension]):'ASK'} /100</th></tr></thead>
+          : `<table><thead><tr><th scope="col">Nama CSR</th>${view==='roster'?'<th scope="col">CTP</th><th scope="col">Area / Site</th>':''}<th scope="col">Unit</th>${multiMonth?'<th scope="col">Bulan penilaian</th>':''}<th scope="col">${isDimension?el({attitude:'Attitude',skill:'Skill',knowledge:'Knowledge'}[filters.dimension]):'ASK'} /100</th>${view==='roster'&&rosterMoM?'<th scope="col">MoM</th>':''}</tr></thead>
             <tbody>${result.rows.map(row=>`<tr><th scope="row">${el(row.name)}</th>${view==='roster'?`<td>${el(row.channel)}</td><td>${el(row.areaSite || row.area || '—')}</td>`:''}<td>${el(view==='roster'?(row.unit || '—'):unitLabel(row))}</td>
-             ${multiMonth?`<td>${el(dashboardTrialFormatMonth(row.month))}</td>`:''}<td>${scoreLabel(isDimension?row.dimensionScore:row.score)}</td></tr>`).join('')}</tbody></table>`;
+             ${multiMonth?`<td>${el(dashboardTrialFormatMonth(row.month))}</td>`:''}<td>${scoreLabel(isDimension?row.dimensionScore:row.score)}</td>${view==='roster'&&rosterMoM?`<td>${Number.isFinite(row.previousScore)?(()=>{const delta=row.score-row.previousScore;const symbol=delta>0.049?'▲':delta< -0.049?'▼':'→';const direction=symbol==='▲'?'Naik':symbol==='▼'?'Turun':'Tetap';return `<span class="canvas-ask-rank-move ${symbol==='▲'?'is-up':symbol==='▼'?'is-down':''}" title="Skor ${el(dashboardShortComparison(result.comparison.month).replace(/^vs /,''))}: ${scoreLabel(row.previousScore)}" aria-label="${direction} ${scoreLabel(Math.abs(delta))} poin">${symbol} ${scoreLabel(Math.abs(delta))} poin</span>`})():`<span title="${result.comparison?.available?'CSR belum dinilai bulan lalu':'Data bulan lalu belum tersedia'}">—</span>`}</td>`:''}</tr>`).join('')}</tbody></table>`;
         if (result?.rows.length) {
           const end = result.offset + result.rows.length;
           status.textContent = `${count.format(result.offset+1)}–${count.format(end)} dari ${count.format(result.total)} ${multiMonth?'penilaian':'CSR'}`;
@@ -826,8 +842,8 @@ function bindDashboard(){
   document.querySelectorAll('details[data-learning-disclosure]').forEach(disclosure=>disclosure.addEventListener('toggle',()=>{
     if (!disclosure.isConnected) return;
     const key = disclosure.dataset.learningDisclosure;
-    if (disclosure.open) dashboardLearningOpen.add(key);
-    else dashboardLearningOpen.delete(key);
+    if (disclosure.open) {dashboardLearningOpen.add(key);dashboardLearningClosed.delete(key)}
+    else {dashboardLearningOpen.delete(key);dashboardLearningClosed.add(key)}
   }));
   bindDashboardHardSkill();
   const askReport = document.querySelector('.canvas-ask-report');
@@ -845,6 +861,9 @@ function bindDashboard(){
   const selectReportTab = key=>{
     if (!reportTabs.length) return;
     dashboardReportTab = key;
+    document.querySelectorAll('[data-dashboard-executive-tab]').forEach(panel=>{
+      panel.hidden = panel.dataset.dashboardExecutiveTab!==key;
+    });
     for (const tab of reportTabs) {
       const selected = tab.dataset.dashboardReportTab===key;
       tab.setAttribute('aria-selected',String(selected));
@@ -1046,8 +1065,9 @@ function loadLocalAskReport() {
   localAskReport = response.ok ? await response.json() : {};
   refreshDashboardTrialYtd();
   refresh();
- }).catch(() => {
-  localAskReport = {};
+ }).catch(error => {
+  console.error('ASK summary could not load or render',error);
+  if (!localAskReport) localAskReport = {};
   refresh();
  });
 }
