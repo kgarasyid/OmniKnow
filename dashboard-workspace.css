@@ -1263,7 +1263,7 @@ details.canvas-learning-report:not([open]) > .canvas-learning-body {display:none
 }
 .hard-skill-kpi strong span {font-size:12px;letter-spacing:normal}
 .hard-skill-kpi small {color:var(--canvas-muted);font-size:11px;line-height:1.4}
-.hard-skill-report[data-report-channel="Nasional"] .hard-skill-kpi h4 {
+.hard-skill-kpi h4 {
   display:flex;
   align-items:center;
   gap:7px;
@@ -2925,6 +2925,10 @@ button.canvas-quadrant-select::after {
 .hard-skill-exec-summary .hard-skill-panel.is-summary .hard-skill-highlight-icon {background:#dce7f7;color:#1e3a5f}
 .hard-skill-exec-summary .hard-skill-panel.is-pain .hard-skill-highlight-icon {background:var(--canvas-rose);color:var(--canvas-red-deep)}
 .hard-skill-exec-summary .hard-skill-panel.is-action .hard-skill-highlight-icon {background:#d2f0de;color:#166534}
+.hard-skill-exec-source {margin:0 0 10px;color:var(--canvas-muted);font-size:12px;font-weight:700}
+.hard-skill-exec-reference {margin:0 12px 12px;padding:10px 12px;border:1px solid #c5d7ee;border-radius:10px;background:#fff}
+.hard-skill-exec-reference h6 {margin:0 0 6px;color:var(--canvas-text);font-size:13px;font-weight:800}
+.hard-skill-exec-reference p {margin:0;font-size:12px;line-height:1.5;color:var(--canvas-text)}
 @media (max-width:900px) {
   .canvas-ask-exec-grid,.hard-skill-exec-summary .hard-skill-exec-cols {grid-template-columns:1fr}
 }
@@ -3044,7 +3048,7 @@ button.canvas-quadrant-select::after {
 .canvas-ask-performance tr.is-total :is(th,td) {font-weight:800}
 
 /* Keep data cells legible while preserving the boxed table layout. */
-.workspace-theme table :is(th,td) {border:1px solid #d7e2ee}
+.workspace-theme table :is(th,td) {border:1px solid #315a83;border-color:#315a83 !important}
 .workspace-theme table .numeric-data-cell {text-align:center;font-size:13px;font-weight:650;font-variant-numeric:tabular-nums}
 .workspace-theme .canvas-ask-rank-table :is(th,td):is(:first-child,:nth-child(n+5)) {text-align:center}
 .workspace-theme .canvas-ask-rank-table tbody :is(td:first-child,td:nth-child(n+5)) {font-size:13px}

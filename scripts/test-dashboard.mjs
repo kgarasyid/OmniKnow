@@ -64,10 +64,26 @@ assert.match(hardSkillSummary,/class="dashboard-mom-value is-up" aria-label="Tur
 assert.equal(run(ticketMarkup),'');
 vm.runInContext("ctp='GraPARI'",context);
 const ticketDetail = run(ticketMarkup);
-assert.match(ticketDetail,/Per area[\s\S]*Per region[\s\S]*Top 10 Unit GraPARI[\s\S]*Top 5 Kategori Bad Ticket/);
-assert.match(ticketDetail,/Belum ada tiket yang terverifikasi[\s\S]*Top 5 Agen dengan Bad Ticket · Semua Agen Tercatat/);
-assert.match(ticketDetail,/3 tiket unik dengan SIAD[\s\S]*2 tiket bisa dicocokkan/);
+assert.match(ticketDetail,/Performance Bad Ticket Fixed GraPARI[\s\S]*Performance Bad Ticket Mobile GraPARI/);
+assert.doesNotMatch(ticketDetail,/Temuan workbook Bad Ticket|hard-skill-ticket-channels/);
 assert.doesNotMatch(ticketDetail,/data-hard-skill-channel=/);
+vm.runInContext("ctp='Contact Center'",context);
+const callCenterTickets = run(`hardSkillBadTickets([{channel:'Call Center',months:[{month:'2026-10',count:3}],
+ performance:{services:[]}}],'Oktober 2026',null,{})`);
+assert.match(callCenterTickets,/Call Center Bad Ticket Performance/);
+assert.doesNotMatch(callCenterTickets,/Call Center Training Hardskill BadTicket|Documentation Aug/);
+assert.doesNotMatch(await readFile(new URL('dashboard-hard-skill.js',root),'utf8'),/Apa yang Berubah\?/);
+vm.runInContext("ctp='GraPARI'",context);
+const mergedNotes = run(`hardSkillGrapariNotes({totals:{sessions:2,participants:3},badTickets:[{channel:'GraPARI',
+ services:[{service:'Fixed',reference:{notes:{Summary:['Fixed fiktif','Detail tambahan fiktif'], 'Pain Points':['Masalah Fixed fiktif'], 'Action Plan':['Aksi Fixed fiktif']}}},
+ {service:'Mobile',reference:{notes:{Summary:['Mobile fiktif'], 'Pain Points':['Masalah Mobile fiktif'], 'Action Plan':['Aksi Mobile fiktif']}}}],categories:[]}]})`);
+assert.equal((mergedNotes.match(/Referensi PPT · Agustus–Oktober 2026/g)||[]).length,1);
+for(const note of ['Fixed fiktif','Masalah Fixed fiktif','Aksi Fixed fiktif','Mobile fiktif','Masalah Mobile fiktif','Aksi Mobile fiktif'])
+ assert.ok(mergedNotes.includes(note));
+assert.match(mergedNotes,/<h6>Fixed<\/h6>/);
+assert.match(mergedNotes,/<h6>Mobile<\/h6>/);
+assert.doesNotMatch(mergedNotes,/Detail tambahan fiktif/);
+assert.equal((mergedNotes.match(/class="hard-skill-panel is-/g)||[]).length,3);
 vm.runInContext("selectDashboardChannel('GraPARI');ctpScope='Area 1';dashboardUnit=dashboardUnitKey(filtered()[0]);selectDashboardChannel('Contact Center')",context);
 assert.equal(run('ctpScope'),'All locations');
 assert.equal(run('dashboardUnit'),'');

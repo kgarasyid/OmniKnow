@@ -94,11 +94,11 @@ function hardSkillKpis({totals,methods,priorParticipation,trainingBreakdowns,pri
   ['Refreshment · Online',Online.participants,'peserta unik',hardSkillCount(Online.attendance,'kehadiran'),prior?.methods.Online.participants],
  ];
  return `<section class="hard-skill-kpi-group" aria-labelledby="hard-skill-kpi-title">
- <h4 id="hard-skill-kpi-title">${hardSkillIconLabel('KPI Training Hard Skill',national?HARD_SKILL_CHART_ICON:'')}</h4>
+ <h4 id="hard-skill-kpi-title">${hardSkillIconLabel('KPI Training Hard Skill',HARD_SKILL_CHART_ICON)}</h4>
  <div class="hard-skill-kpis">${metrics.map(([label,value,unit,note,previous],index)=>{
   const lowerIsBetter = unit==='peserta unik';
   const tone = dashboardMoMChange(value,previous,{lowerIsBetter})?.tone || '';
-  return `<article class="hard-skill-kpi"><h4>${national?`<svg class="hard-skill-kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[index]}</svg>`:''}${el(label)}</h4>
+  return `<article class="hard-skill-kpi"><h4><svg class="hard-skill-kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[index]}</svg>${el(label)}</h4>
    <div class="hard-skill-kpi-measure"><strong class="dashboard-mom-value ${tone}">${hardSkillNumber.format(value)} <span>${unit}</span></strong>
     ${hardSkillMovement(value,previous,unit,{compact:true,lowerIsBetter})}</div><small>${el(note)}</small>
   </article>`;
@@ -127,23 +127,6 @@ function hardSkillChart(report,active) {
   }).join('')}</div></div>
   ${active?`<p class="hard-skill-selection">${el(hardSkillMonthLabel(active))} · ${hardSkillCount(buckets.find(bucket=>bucket.key===active)?.attendance || 0,'kehadiran')}</p>`:''}
  </section>`;
-}
-
-function hardSkillInsights(report,active) {
- const {current,previous} = report.comparisons[active] || {};
- const row = (label,value,prior,unit,suffix='')=>{
-  const tone = dashboardMoMChange(value,prior)?.tone || '';
-  return `<div><dt>${label}</dt><dd><span title="${el(hardSkillMonthLabel(previous.key))}">${hardSkillScore.format(prior)}${suffix}</span>
-   → <strong class="dashboard-mom-value ${tone}" title="${el(hardSkillMonthLabel(current.key))}">${hardSkillScore.format(value)}${suffix}</strong>
-   ${hardSkillMovement(value,prior,unit)}</dd></div>`;
- };
- return `<aside class="hard-skill-panel hard-skill-insight"><header><h4>Apa yang Berubah?</h4>
-  ${current&&previous?`<p>${el(dashboardCompareMonths(current.key,previous.key))}</p>`:''}</header>
-  ${current&&previous?`<dl class="hard-skill-insight-comparison">
-   ${row('Kehadiran',current.attendance,previous.attendance,'kehadiran')}
-   ${current.attendance&&previous.attendance?row('Porsi Offline',100*current.offline/current.attendance,100*previous.offline/previous.attendance,'pp','%'):''}
-  </dl>`:'<p>Pembanding bulan sebelumnya belum tersedia.</p>'}
- </aside>`;
 }
 
 function hardSkillSiteLabel(label) {
@@ -178,7 +161,7 @@ function hardSkillTrainingSummary({bootcamp,refreshment,contactCenter,callCenter
  const locations = (groups,prefix,filters,priorLocations)=>`<div class="hard-skill-summary-items">${groups.map((group,index)=>
   hardSkillBreakdownButton(`hard-skill-${prefix}-${index}`,{...group,label:hardSkillSiteLabel(group.label)},
    {...filters,place:group.key},{previous:priorEntry(priorLocations,'key',group.key),preferParticipants:national,
-    icon:national?HARD_SKILL_LOCATION_ICON:''})).join('')}</div>`;
+    icon:HARD_SKILL_LOCATION_ICON})).join('')}</div>`;
  const fact = (label,description,icon)=>`<p class="hard-skill-summary-fact"><strong>${hardSkillIconLabel(label,icon)}</strong> ${el(description)}</p>`;
  const emptyEntry = (label,icon)=>`<div class="hard-skill-summary-program"><strong>${hardSkillIconLabel(label,icon)}</strong><span>Belum ada sesi dalam filter</span></div>`;
  if (national) {
@@ -214,10 +197,10 @@ function hardSkillTrainingSummary({bootcamp,refreshment,contactCenter,callCenter
  }
  const offline = bootcamp.attendance ? groupPanel('Bootcamp Hard Skills – Offline · GraPARI','GraPARI',
   locations(bootcamp.locations,'bootcamp',{method:'Offline',channels:['GraPARI']},prior?.bootcamp.locations)+
-  fact('Peserta per fungsi',bootcamp.roles.map(({label,participants})=>`${label} (${hardSkillNumber.format(participants)})`).join(' · '))+
-  fact('Materi',bootcamp.materials.map(({label})=>label).join(' · '))+
+  fact('Peserta per fungsi',bootcamp.roles.map(({label,participants})=>`${label} (${hardSkillNumber.format(participants)})`).join(' · '),DASHBOARD_CSR_ICON_PATH)+
+  fact('Materi',bootcamp.materials.map(({label})=>label).join(' · '),HARD_SKILL_TICKET_ICON)+
   (bootcamp.materials.some(({label})=>label==='Bad Ticket') ?
-   fact('Topik Bootcamp','SOP Bad Ticket, 360 Diagnosis, Root Cause Analysis, Stuck Order, studi kasus, dan praktik penanganan.') : ''),
+   fact('Topik Bootcamp','SOP Bad Ticket, 360 Diagnosis, Root Cause Analysis, Stuck Order, studi kasus, dan praktik penanganan.',HARD_SKILL_OFFLINE_ICON) : ''),
   HARD_SKILL_OFFLINE_ICON
  ) : '';
  const singleContact = channel==='Call Center' ? callCenter : channel==='E-Care' ? eCare : null;
@@ -225,7 +208,7 @@ function hardSkillTrainingSummary({bootcamp,refreshment,contactCenter,callCenter
  const online = materials.length ?
   groupPanel(singleContact?'Materi Refreshment Lain – Online':'Refreshment – Online',channel,`<div class="hard-skill-summary-programs">${materials.map((group,index)=>
    hardSkillBreakdownButton(`hard-skill-online-${index}`,group,{method:'Online',material:group.label},
-    {note:hardSkillDateCoverage(group.dates),previous:priorEntry(prior?.refreshment.materials,'label',group.label)})).join('')}
+    {note:hardSkillDateCoverage(group.dates),previous:priorEntry(prior?.refreshment.materials,'label',group.label),icon:group.label==='Bad Ticket'?HARD_SKILL_TICKET_ICON:HARD_SKILL_ONLINE_ICON})).join('')}
    ${!singleContact && refreshment.contact.attendance?`<div class="hard-skill-summary-program"><strong>Contact Center &amp; E-Care</strong>
     <span>${hardSkillCount(refreshment.contact.attendance,'kehadiran')} dalam rekap Online · ${hardSkillCount(refreshment.contact.participants,'peserta unik')}</span>
     <small>${el(refreshment.contact.locations.map(group=>`${hardSkillSiteLabel(group.label)} ${hardSkillCount(group.attendance,'kehadiran')}`).join(' · '))}</small></div>`:''}
@@ -236,7 +219,7 @@ function hardSkillTrainingSummary({bootcamp,refreshment,contactCenter,callCenter
  const contactTitle = channel==='E-Care'?'Refreshment E-Care – Online':channel==='Call Center'?'Refreshment Call Center – Online':'Refreshment Contact Center – Online';
  const contactPanel = contact.attendance?groupPanel(contactTitle,contactChannel,
   locations(contact.locations,'contact',{method:'Online',channels:singleContact?[channel]:['Call Center','E-Care'],material:'Bad Ticket'},priorContact?.locations)+
-  fact('Total peserta',`${hardSkillCount(contact.participants,'peserta unik')} · ${hardSkillCount(contact.attendance,'kehadiran')}`)+fact('Materi','Bad Ticket')):'';
+  fact('Total peserta',`${hardSkillCount(contact.participants,'peserta unik')} · ${hardSkillCount(contact.attendance,'kehadiran')}`,DASHBOARD_CSR_ICON_PATH)+fact('Materi','Bad Ticket',HARD_SKILL_TICKET_ICON)):'';
  const panels = singleContact ? [contactPanel,online].filter(Boolean) : [offline,online,contactPanel].filter(Boolean);
  if (singleContact && kpisHtml && contactPanel) {
   return `<div class="hard-skill-national-top">${kpisHtml}${contactPanel}</div>${online?`<div class="hard-skill-training-summary">${online}</div>`:''}`;
@@ -416,57 +399,6 @@ function hardSkillSlideTable(title,headers,rows,{source='',alignRows=false,empty
    <tbody${tableRole('rowgroup')}>${rows.map(row=>`<tr${tableRole('row')}><th scope="row"${tableRole('rowheader')}>${hardSkillSlideValue(row[0])}</th>
     ${row.slice(1).map(value=>`<td${tableRole('cell')}>${hardSkillSlideValue(value)}</td>`).join('')}</tr>`).join('')}</tbody>
    </table></div>`:`<p class="hard-skill-slide-empty">${el(emptyText)}</p>`}</section>`;
-}
-
-function hardSkillSlideNotes(notes) {
- if (!notes) return '';
- return `<section class="hard-skill-slide-notes"><h5>${hardSkillPptPeriod}</h5><div class="hard-skill-slide-list-grid">
-  ${Object.entries(notes).map(([heading,items])=>`<article class="hard-skill-slide-card${heading==='Summary'?' hard-skill-summary-note':''}"><header><h6>${el(heading)}</h6></header>
-   <ol>${items.map(item=>`<li>${el(item)}</li>`).join('')}</ol></article>`).join('')}
- </div></section>`;
-}
-
-function hardSkillCallCenterChart(performance,comparison) {
- const services = performance?.services || [];
- if (!services.length || !services[0].sites.length) return hardSkillSlideTable('Bad Ticket Fixed & Mobile',['Layanan'],[]);
- const pairs = performance.months.flatMap(month=>services.filter(service=>(service.months || performance.months).includes(month)).map(service=>({
-  label:`${dashboardTrialShortMonth.format(hardSkillDate(month))} · ${service.name}`,
-  counts:service.sites.map(site=>site.months.find(entry=>entry.month===month).count),
- })));
- const largest = Math.max(1,...pairs.flatMap(item=>item.counts));
- const sites = services[0].sites;
- return `<section class="hard-skill-slide-card hard-skill-slide-chart">
-  <header><h5>Bad Ticket Fixed &amp; Mobile</h5><small>${el(services.map(service=>service.source).filter(Boolean).join(' · '))}</small></header>
-  <div class="hard-skill-slide-chart-body"><div class="hard-skill-ticket-chart">
-   <div class="hard-skill-ticket-key">${sites.map(site=>`<span data-site="${site.key}">${el(site.label)}</span>`).join('')}</div>
-   <div class="hard-skill-ticket-months" style="--ticket-months:${pairs.length}">
-    ${pairs.map(({label,counts})=>`<div class="hard-skill-ticket-month">
-     <div class="hard-skill-ticket-month-bars">${counts.map((count,index)=>`<div class="hard-skill-ticket-column"
-      data-site="${sites[index].key}" style="--ticket-height:${100*count/largest}%" title="${el(label+' · '+sites[index].label+' · '+hardSkillCount(count,'tiket'))}">
-      <b>${hardSkillNumber.format(count)}</b><i></i></div>`).join('')}</div><small>${el(label)}</small></div>`).join('')}
-   </div></div><ul class="hard-skill-slide-totals">
-    ${services.map(service=>`<li><strong>${el(service.name)}</strong> ${hardSkillTicketCount(service.count,service.prior,'tiket',comparison)}</li>`).join('')}
-   </ul></div></section>`;
-}
-
-function hardSkillCallCenterSlides(report,ticket,period,comparison) {
- const training = report?.trainingBreakdowns?.callCenter;
- const selectedMonths = ticket.months.map(({month})=>month);
- const activity = `<section class="hard-skill-slide-card"><header><h5>Refreshment Call Center – Online</h5><small>Workbook Training</small></header>
-  ${training?.locations.length?`<div class="hard-skill-slide-site-grid">${training.locations.map(site=>`<article>
-   <h6>${el(hardSkillSiteLabel(site.label))}</h6><p>${hardSkillCount(site.participants,'peserta unik')} · ${hardSkillCount(site.sessions,'sesi')}</p>
-  </article>`).join('')}</div><p><strong>Peserta</strong> ${hardSkillNumber.format(training.participants)} · <strong>Materi</strong> Bad Ticket</p>`
-  :'<p>Belum ada sesi Refreshment Bad Ticket untuk filter ini.</p>'}</section>`;
- const documentation = ticket.documentation?.filter(([month])=>selectedMonths.includes(month)) || [];
- const docs = `<section class="hard-skill-slide-card"><header><h5>Documentation Aug – Oct 2026</h5><small>Dokumentasi PPT · Site 1 &amp; 2</small></header>
-  ${documentation.length?`<div class="hard-skill-slide-docs">${documentation.map(([month,participants,batches])=>`<figure>
-   <figcaption><strong>${el(hardSkillMonthLabel(month))}</strong></figcaption>
-   <div class="hard-skill-slide-photo" data-month="${month.slice(5)}"><img src="/local-hard-skill-documentation.png" loading="lazy" alt="Dokumentasi training ${el(hardSkillMonthLabel(month))}"></div>
-   <small>${hardSkillCount(participants,'agen')} · ${hardSkillCount(batches,'batch')}</small></figure>`).join('')}</div>`
-  :'<p>Dokumentasi belum tersedia untuk filter ini.</p>'}</section>`;
- return hardSkillSlideDisclosure('contact-training','Call Center Training Hardskill BadTicket',period,
-  `<div class="hard-skill-slide-cc-grid"><div>${activity}${docs}</div>
-   <div>${hardSkillCallCenterChart(ticket.performance,comparison)}</div></div>`);
 }
 
 function hardSkillSitePerformanceNotes(ticket,comparison) {
@@ -717,7 +649,7 @@ function hardSkillGrapariTicketBody(report,comparison) {
  ];
  return `<div class="hard-skill-slide-gra-overview" data-hard-skill-gra-distribution="${el(service)}">${hardSkillGrapariOverview(report,comparison)}</div>
    ${hardSkillGrapariRankGrid(unitTables,'hard-skill-slide-unit-grid')}
-   ${hardSkillGrapariRankGrid(rankings,'hard-skill-gra-rankings',true)}${hardSkillSlideNotes(reference?.notes)}`;
+   ${hardSkillGrapariRankGrid(rankings,'hard-skill-gra-rankings',true)}`;
 }
 
 function hardSkillGrapariTicketTabs(reports,period,comparison) {
@@ -744,54 +676,36 @@ function hardSkillBadTickets(reports,period,comparison,trainingReport) {
  if (!reports?.length || ctp==='All CTPs') return '';
  const displayedPeriod = el(comparison?.label || period);
  const active = reports[0];
- const slides = active.channel==='Call Center' ? hardSkillCallCenterSlides(trainingReport,active,period,comparison)
-  : active.channel==='GraPARI' ? hardSkillGrapariTicketTabs(active.services || [],period,comparison)
+ const slides = active.channel==='GraPARI' ? hardSkillGrapariTicketTabs(active.services || [],period,comparison)
   : '';
  const sitePerformance = active.channel==='GraPARI' ? '' : hardSkillSitePerformance(active,period,comparison);
  return `<section class="hard-skill-panel hard-skill-tickets" tabindex="-1"><header><h4>Performa Bad Ticket · ${el(dashboardChannelLabel())}</h4>
   <p>${displayedPeriod}</p>${hardSkillMobileCoverage(trainingReport)}</header>
   ${sitePerformance}${slides}
-  <div class="hard-skill-ticket-channels">${reports.map(report=>{
-   const {channel,count,months,prior,priorScopeDiffers,workbookServices,locations,categories,symptoms,regions,units} = report;
-   const covered = months.filter(row=>row.count!=null);
-   const trend = months.map(({month,count})=>({label:hardSkillMonthLabel(month),count}));
-   const rankedBars = (title,rows,wide=false)=>rows?.length?`<section${wide?' class="hard-skill-ticket-wide"':''}><h5>${title}</h5>
-    ${hardSkillReportBars(rows,Math.max(1,...rows.map(row=>row.count || 0)),'temuan')}</section>`:'';
-   return `<details class="hard-skill-evaluation" data-report-channel="${el(channel)}" data-hard-skill-ticket="${el(channel)}"${hardSkillTicketOpen.has(channel)?' open':''}>
-    <summary>Temuan workbook Bad Ticket
-     <span class="hard-skill-ticket-workbook-count">${covered.length?hardSkillTicketCount(count,prior,'temuan',comparison,priorScopeDiffers):'Data belum tersedia'}</span></summary>
-    ${covered.length?`
-     <p class="hard-skill-ticket-source">${workbookServices?.length?`${el(workbookServices.join(' & '))} · `:''}Bulan laporan · Data tersedia ${el(covered.map(row=>hardSkillMonthLabel(row.month)).join(' · '))}</p>
-     <div class="hard-skill-ticket-breakdowns">${months.length>1?rankedBars('Per bulan',trend,true):''}
-      ${rankedBars(channel==='GraPARI'?'Per area':'Per site',locations,channel!=='GraPARI'||!regions?.length)}
-      ${rankedBars('Per region',regions)}
-      ${channel==='GraPARI'?rankedBars('Top 10 Unit GraPARI',units,true):''}
-      ${rankedBars('Top 5 Kategori Bad Ticket',categories,!symptoms?.length)}
-      ${rankedBars('Top 5 KIP Symptom',symptoms,!categories?.length)}
-      ${hardSkillTicketAgentRanking(report)}
-     </div>`:''}
-   </details>`;
-  }).join('')}</div>
  </section>`;
 }
 
-function hardSkillExecutiveCards(title,summaryItems,painItems,actionItems) {
- const card = (heading,items,tone,icon)=>`<article class="hard-skill-panel is-${tone}"><header><h5>${hardSkillIconLabel(heading,icon)}</h5></header><ol class="hard-skill-highlight-list">${items.filter(Boolean).map(({icon:itemIcon,label,text})=>`<li><span class="hard-skill-highlight-icon">${dashboardChannelIcon(itemIcon)}</span><div><strong>${el(label)}</strong><span>${el(text)}</span></div></li>`).join('')}</ol></article>`;
+function hardSkillExecutiveCards(title,summaryItems,painItems,actionItems,referenceNotes=[]) {
+ const card = (heading,items,tone,icon,notesKey)=>`<article class="hard-skill-panel is-${tone}"><header><h5>${hardSkillIconLabel(heading,icon)}</h5></header><ol class="hard-skill-highlight-list">${items.filter(Boolean).map(({icon:itemIcon,label,text})=>`<li><span class="hard-skill-highlight-icon">${dashboardChannelIcon(itemIcon)}</span><div><strong>${el(label)}</strong><span>${el(text)}</span></div></li>`).join('')}</ol>
+  ${referenceNotes.map(({service,notes})=>notes[notesKey]?.[0]?`<div class="hard-skill-exec-reference"><h6>${el(service)}</h6><p>${el(notes[notesKey][0])}</p></div>`:'').join('')}</article>`;
  return `<section class="hard-skill-highlights hard-skill-exec-summary"><h4>${hardSkillIconLabel(title,HARD_SKILL_CHART_ICON)}</h4>
-  <div class="hard-skill-exec-cols">${card('Summary',summaryItems,'summary','M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z')}
-  ${card('Pain Points',painItems,'pain','M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z')}
-  ${card('Action Plan / Recommendation',actionItems,'action','M4 12h15m-6-6 6 6-6 6')}</div></section>`;
+  ${referenceNotes.length?`<p class="hard-skill-exec-source">${hardSkillPptPeriod}</p>`:''}
+  <div class="hard-skill-exec-cols">${card('Summary',summaryItems,'summary','M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z','Summary')}
+  ${card('Pain Points',painItems,'pain','M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z','Pain Points')}
+  ${card('Action Plan / Recommendation',actionItems,'action','M4 12h15m-6-6 6 6-6 6','Action Plan')}</div></section>`;
 }
 
 function hardSkillGrapariNotes(report) {
  const grapari = report.badTickets?.find(item=>item.channel==='GraPARI');
- const fixed = grapari?.services?.find(item=>item.name==='Fixed');
- const mobile = grapari?.services?.find(item=>item.name==='Mobile');
+ const fixed = grapari?.services?.find(item=>item.service==='Fixed');
+ const mobile = grapari?.services?.find(item=>item.service==='Mobile');
  const topArea = [...(fixed?.areas || [])].sort((a,b)=>b.count-a.count)[0];
  const topCat = grapari?.categories?.[0];
+ const referenceNotes = (grapari?.services || []).filter(service=>service.reference?.notes)
+  .map(service=>({service:service.service,notes:service.reference.notes}));
  const summaryItems = [
   {icon:HARD_SKILL_ONLINE_ICON,label:'Jangkauan Training',text:`${hardSkillCount(report.totals.sessions,'sesi')} menjangkau ${hardSkillCount(report.totals.participants,'peserta unik')} di GraPARI.`},
-  fixed?.count!=null ? {icon:HARD_SKILL_TICKET_ICON,label:'Volume Bad Ticket',text:`Fixed mencatat ${hardSkillCount(fixed.count,'tiket')} dan Mobile ${hardSkillCount(mobile?.count ?? 0,'tiket')}.`} : null,
+  !referenceNotes.length && fixed?.count!=null ? {icon:HARD_SKILL_TICKET_ICON,label:'Volume Bad Ticket',text:`Fixed mencatat ${hardSkillCount(fixed.count,'tiket')} dan Mobile ${hardSkillCount(mobile?.count ?? 0,'tiket')}.`} : null,
  ];
  const painItems = [
   topArea ? {icon:HARD_SKILL_LOCATION_ICON,label:'Area Tertinggi',text:`Bad Ticket Fixed terbanyak di ${topArea.label} (${hardSkillCount(topArea.count,'tiket')}).`} : null,
@@ -801,7 +715,7 @@ function hardSkillGrapariNotes(report) {
   {icon:HARD_SKILL_LOCATION_ICON,label:'Fokus Pendampingan',text:topArea?`Prioritaskan coaching & refreshment pada unit di ${topArea.label}.`:'Tinjau unit dengan volume Bad Ticket tertinggi.'},
   {icon:HARD_SKILL_CHART_ICON,label:'Kontrol Kualitas',text:'Evaluasi kepatuhan pengisian mandatori & pemilihan KIP/Symptom serta pantau MoM bulan berikutnya.'},
  ];
- return hardSkillExecutiveCards('Executive Summary · GraPARI',summaryItems,painItems,actionItems);
+ return hardSkillExecutiveCards('Executive Summary · GraPARI',summaryItems,painItems,actionItems,referenceNotes);
 }
 
 function hardSkillHighlights(report,comparison) {
@@ -999,14 +913,13 @@ function dashboardHardSkillBody() {
   body = `<p class="hard-skill-empty" role="status">${message}</p>`+tickets+analytics;
  } else {
   const active = monthly ? hardSkillSelection.bucket || report.timeline.months.findLast(bucket=>bucket.attendance>0)?.key : end;
-  const insight = hardSkillInsights(report,active);
   const useTopGrid = !national && ['Call Center','E-Care'].includes(dashboardChannelLabel());
   body = (national?hardSkillHighlights(report,comparison):dashboardChannelLabel()==='GraPARI'?hardSkillGrapariNotes(report):hardSkillSitePerformanceNotes(report.badTickets?.[0],comparison))+
    (useTopGrid?'':hardSkillKpis(report,showMoM))+
    hardSkillTrainingSummary(report.trainingBreakdowns,dashboardChannelLabel(),showMoM?report.priorTrainingBreakdowns:null,useTopGrid?hardSkillKpis(report,showMoM):'')+
    (national?analytics+hardSkillEvaluation(report.evaluation,period)+hardSkillDetails(report)
     :hardSkillDetails(report)+tickets+analytics+hardSkillEvaluation(report.evaluation,period))+
-   (monthly?`<div class="hard-skill-grid">${hardSkillChart(report,active)}${insight}</div>`:showMoM&&!national?insight:'');
+   (monthly?hardSkillChart(report,active):'');
  }
  return `<div class="hard-skill-report" data-report-channel="${el(dashboardChannelLabel())}">${header}${body}</div>`;
 }
