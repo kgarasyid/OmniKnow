@@ -1,4 +1,4 @@
-Local development runs on loopback with fictional demo data. Deployment access uses Microsoft Entra. See [AUTH-SETUP.md](docs/AUTH-SETUP.md).
+Local development runs on loopback with fictional demo data. Deployment currently opens directly without Microsoft login; restricted Microsoft access can be re-enabled using `AUTH_MODE=microsoft`. See [AUTH-SETUP.md](docs/AUTH-SETUP.md).
 
 # OmniKnow — complete editable developer package
 

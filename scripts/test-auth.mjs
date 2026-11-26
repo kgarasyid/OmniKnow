@@ -3,7 +3,7 @@ import {generateKeyPairSync,sign} from 'node:crypto';
 import {authConfig,seal,unseal,session,authRoute,validateIdToken} from '../server/auth.mjs';
 import {gateway} from '../server/gateway.mjs';
 const tenant='11111111-1111-4111-8111-111111111111',client='22222222-2222-4222-8222-222222222222',oid='33333333-3333-4333-8333-333333333333',other='44444444-4444-4444-8444-444444444444';
-const env={AUTH_ORIGIN:'http://127.0.0.1:5173',MICROSOFT_TENANT_ID:tenant,MICROSOFT_CLIENT_ID:client,MICROSOFT_CLIENT_SECRET:'fictional-client-secret',AUTH_SESSION_SECRET:'a'.repeat(64),AUTH_ALLOWED_OBJECT_IDS:oid+','+other};
+const env={AUTH_MODE:'microsoft',AUTH_ORIGIN:'http://127.0.0.1:5173',MICROSOFT_TENANT_ID:tenant,MICROSOFT_CLIENT_ID:client,MICROSOFT_CLIENT_SECRET:'fictional-client-secret',AUTH_SESSION_SECRET:'a'.repeat(64),AUTH_ALLOWED_OBJECT_IDS:oid+','+other};
 assert.throws(()=>authConfig({}));assert.throws(()=>authConfig({...env,AUTH_ALLOWED_OBJECT_IDS:oid}));assert.throws(()=>authConfig({...env,VERCEL:'1'}));
 const c=authConfig(env),now=Math.floor(Date.now()/1000),s={type:'session',tid:tenant,oid,exp:now+300},token=seal(s,c);
 assert.equal(unseal(token,c).oid,oid);assert.equal(unseal(token+'x',c),null);assert.equal(unseal(seal({...s,exp:now-1},c),c),null);
@@ -25,5 +25,19 @@ for(const path of ['/','/index.html','/dashboard-workspace.js','/dist/index.html
 }
 assert.equal((await gateway(request('/index.html',`omniknow_session=${token}`),{root:new URL('../',import.meta.url)})).status,200);
 assert.equal((await gateway(request('/reference/deployed-index.html',`omniknow_session=${token}`))).status,404);
-Object.keys(env).forEach(k=>delete process.env[k]);assert.equal((await gateway(request('/'))).status,503);Object.assign(process.env,old);
+for(const key of Object.keys(env))if(key!=='AUTH_MODE')delete process.env[key];
+assert.equal((await gateway(request('/'))).status,503);
+delete process.env.AUTH_MODE;
+for(const path of ['/','/index.html','/dashboard-hard-skill.js','/training-results.html']) {
+ const response=await gateway(request(path),{root:new URL('../',import.meta.url)});
+ assert.equal(response.status,200);
+ const body=await response.text();
+ assert.ok(!body.includes('Keluar akun'));
+ assert.ok(!body.includes('Pengguna terautentikasi'));
+}
+assert.equal((await gateway(request('/auth/login'))).headers.get('location'),'/');
+assert.equal((await gateway(request('/reference/deployed-index.html'))).status,404);
+assert.equal((await gateway(request('/private-data/ask/fictional.xlsx'))).status,404);
+for(const key of Object.keys(env))delete process.env[key];Object.assign(process.env,old);
+console.log('PASS: direct access without Microsoft configuration, no sign-in/logout UI, required browser assets, and private files excluded.');
 console.log('PASS: fail-closed configuration, two-user enforcement, signed cookies, expiry/tampering, PKCE/state, real RSA token verification and claim rejection, logout CSRF, protected HTML/assets/API and file allowlist.');
