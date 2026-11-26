@@ -194,6 +194,8 @@ def summarize(path, period, include_details):
     required = (*REQUIRED, "employee name") if include_details else REQUIRED
     suffixes = ["", *(f" {alias}" for alias, number in SOURCE_MONTHS.items() if number == month)]
     tryout_columns = tuple(f"to {slot}{suffix}" for slot in (1, 2, 3) for suffix in suffixes)
+    if month == 10:
+        tryout_columns += ("ifest okt",)
     optional = ("skor akhir", "notes qa", "nilai to", *tryout_columns)
     groups = {name: empty_group() for name in SEGMENTS}
     csr_counts = dict.fromkeys((*SEGMENTS, "GraPARI model belum tercatat", "CTP belum terpetakan"), 0)
@@ -240,14 +242,19 @@ def summarize(path, period, include_details):
             bucket = csr_locations.setdefault(key, {})
             bucket[csr_bucket] = bucket.get(csr_bucket, 0) + 1
         # TO is independent of ASK eligibility. Include valid scores from the full CSR roster.
-        scores_to = read_tryout_scores(row, tryout_columns)
-        if scores_to:
-            results = {"count": len(scores_to), "sum": sum(scores_to), "high": 0, "mid": 0, "low": 0}
-            for score in scores_to:
-                results[band_for_score(score)] += 1
+        for column in tryout_columns:
+            try:
+                score = float(field(column))
+            except (ValueError, KeyError):
+                continue
+            if not math.isfinite(score) or not 0 <= score <= 100:
+                continue
+            result = {"count": 1, "sum": score, "high": 0, "mid": 0, "low": 0}
+            result[band_for_score(score)] = 1
+            session = "iFest" if column == "ifest okt" else f"TO {column.split()[1]}"
             for bucket in (tryout_scores, *(tryout_locations.setdefault(key, {}) for key in scoped_keys)):
-                group = bucket.setdefault(csr_bucket, dict.fromkeys(results, 0))
-                for key, value in results.items():
+                group = bucket.setdefault(session, dict.fromkeys(result, 0))
+                for key, value in result.items():
                     group[key] += value
         if quadrant.casefold() == "non kuadran":
             excluded += 1

@@ -1001,12 +1001,12 @@ function dashboardHardSkillBody() {
   const active = monthly ? hardSkillSelection.bucket || report.timeline.months.findLast(bucket=>bucket.attendance>0)?.key : end;
   const insight = hardSkillInsights(report,active);
   const useTopGrid = !national && ['Call Center','E-Care'].includes(dashboardChannelLabel());
-  body = (useTopGrid?'':hardSkillKpis(report,showMoM))+
+  body = (national?hardSkillHighlights(report,comparison):dashboardChannelLabel()==='GraPARI'?hardSkillGrapariNotes(report):hardSkillSitePerformanceNotes(report.badTickets?.[0],comparison))+
+   (useTopGrid?'':hardSkillKpis(report,showMoM))+
    hardSkillTrainingSummary(report.trainingBreakdowns,dashboardChannelLabel(),showMoM?report.priorTrainingBreakdowns:null,useTopGrid?hardSkillKpis(report,showMoM):'')+
    (national?analytics+hardSkillEvaluation(report.evaluation,period)+hardSkillDetails(report)
     :hardSkillDetails(report)+tickets+analytics+hardSkillEvaluation(report.evaluation,period))+
-   (monthly?`<div class="hard-skill-grid">${hardSkillChart(report,active)}${insight}</div>`:showMoM&&!national?insight:'')+
-   (national?hardSkillHighlights(report,comparison):dashboardChannelLabel()==='GraPARI'?hardSkillGrapariNotes(report):hardSkillSitePerformanceNotes(report.badTickets?.[0],comparison));
+   (monthly?`<div class="hard-skill-grid">${hardSkillChart(report,active)}${insight}</div>`:showMoM&&!national?insight:'');
  }
  return `<div class="hard-skill-report" data-report-channel="${el(dashboardChannelLabel())}">${header}${body}</div>`;
 }

@@ -12,19 +12,29 @@ function makeDashboardPdf(title,lines,bars){
   objects[catalog]=`<< /Type /Catalog /Pages ${pages} 0 R >>`;objects[pages]=`<< /Type /Pages /Kids [${ids.map(i=>i+' 0 R').join(' ')}] /Count ${ids.length} >>`;
   let out='%PDF-1.4\n',offsets=[0];objects.slice(1).forEach((s,i)=>{offsets.push(out.length);out+=(i+1)+' 0 obj\n'+s+'\nendobj\n'});const start=out.length;out+='xref\n0 '+objects.length+'\n0000000000 65535 f \n'+offsets.slice(1).map(n=>String(n).padStart(10,'0')+' 00000 n \n').join('')+`trailer\n<< /Size ${objects.length} /Root ${catalog} 0 R >>\nstartxref\n${start}\n%%EOF`;return new Blob([out],{type:'application/pdf'});
 }
+function printVisualReport(filename){
+  if(typeof window==='undefined'||typeof window.print!=='function')return false;
+  const previousTitle=typeof document!=='undefined'?document.title:'';
+  if(typeof document!=='undefined'&&filename)document.title=String(filename).replace(/\.pdf$/i,'');
+  notify('Pilih "Save as PDF" pada dialog Print untuk menyimpan laporan visual');
+  try{window.print();}finally{if(typeof document!=='undefined')setTimeout(()=>{document.title=previousTitle;},250);}
+  return true;
+}
 function downloadPagePdf(){
+  const title=page===0?dashboardViewTitle()+(dashboardSub[dashboardTab]?' - '+dashboardSub[dashboardTab]:''):NAV[page][1];
+  const filename=(page===3||(page===0&&dashboardTab===1))?'OmniKnow-ASK-'+reportFrom:'OmniKnow-'+title.replace(/[^a-z0-9-]/gi,'-');
+  if(printVisualReport(filename))return;
   if(page===3||(page===0&&dashboardTab===1)){
     const s=askStats(askScope(filtered())),prior=askPrior();
     const lines=[exportScope(),'Segment: '+askSegmentFilter,'Source: '+(s.all.some(isShowcaseAgent)?'Synthetic demo history':'Local dated records'),'Assessed: '+s.n+' | Non quadrant: '+s.excluded.length,'Weighted ASK: '+(s.score==null?'No data':s.score.toFixed(2))+' / 100',...s.high.map((h,i)=>['Attitude','Skill','Knowledge'][i]+' High: '+h.count+' / '+s.n+' ('+(h.rate==null?'No data':h.rate.toFixed(1)+'%')+') | Change: '+(h.rate==null||prior.high[i].rate==null?'No previous data':(h.rate-prior.high[i].rate).toFixed(1)+' pp')),...ASK_QUADRANTS.map(([q])=>q+': '+s.valid.filter(a=>askExcelLogic(a).quadrant===q).length),'High >=80. Final ASK = 40% Attitude + 30% Skill + 30% Knowledge.','Personal workbook data has not been imported.'];
     savePdfBlob(makeDashboardPdf('ASK Capability Summary',lines,s.high.filter(h=>h.rate!=null).map((h,i)=>({label:['High Attitude','High Skill','High Knowledge'][i],value:h.rate,color:['#ed1639','#f18b25','#7059d9'][i]}))),'OmniKnow-ASK-'+reportFrom+'.pdf');notify('ASK PDF download requested');return;
   }
 
-  const title=page===0?dashboardViewTitle()+(dashboardSub[dashboardTab]?' - '+dashboardSub[dashboardTab]:''):NAV[page][1];
   const root=document.querySelector(page===0?'.dw-panel':'.main');
   const lines=[exportScope(),...(root?.innerText||'No records').split('\n').map(s=>s.trim()).filter(Boolean)];
   const ds=rankDataset(filtered(),page===8?4:page===3?1:dashboardTab,page===8?'Post Test':dashboardSub[dashboardTab]);
   const bars=SCORE_BANDS.map(b=>({label:b.label,value:ds.rows.filter(a=>a.score>=b.min&&a.score<b.max).length,color:b.color}));
-  savePdfBlob(makeDashboardPdf(title,lines,bars),'OmniKnow-'+title.replace(/[^a-z0-9-]/gi,'-')+'.pdf');notify('PDF download requested for the current page and filters');
+  savePdfBlob(makeDashboardPdf(title,lines,bars),filename+'.pdf');notify('PDF download requested for the current page and filters');
 }
 // Minimal standards-based XLSX writer: uncompressed ZIP, inline strings, numeric cells.
 // No formulas, macros, external links or renamed CSV files.
