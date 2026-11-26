@@ -12,7 +12,7 @@
   ],
   "functions": {
     "api/gateway.js": {
-      "includeFiles": "dist/**"
+      "includeFiles": ["dist/**", "deployment-data/**"]
     }
   }
 }
