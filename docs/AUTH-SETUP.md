@@ -1,3 +1,9 @@
+# Current access mode
+
+Microsoft login is temporarily disabled at the user's request. With `AUTH_MODE` unset, the application and survey API open without a Microsoft account. Only the allowlisted built browser assets are served; local private-data files remain excluded from deployment.
+
+To restore Microsoft sign-in, set `AUTH_MODE=microsoft`, configure all settings below, and redeploy. In Microsoft mode, missing settings still deny access.
+
 # Restricted Microsoft login (two users)
 
 This is server-enforced authentication, not a client-side password screen. The application HTML, browser assets and survey API are gated. There is no automatic OneDrive connection, actual-data importer or shared data store in this change. Existing browser-local demo storage remains; authentication alone does not make it suitable for confidential records.
@@ -11,6 +17,7 @@ This is server-enforced authentication, not a client-side password screen. The a
 
 | Setting | Required value |
 | --- | --- |
+| `AUTH_MODE` | `microsoft` to enable restricted login |
 | `AUTH_ORIGIN` | Exact HTTPS origin of the requested deployment; local HTTP only for localhost outside Vercel |
 | `MICROSOFT_TENANT_ID` | Single company tenant GUID |
 | `MICROSOFT_CLIENT_ID` | Registered Web application GUID |
