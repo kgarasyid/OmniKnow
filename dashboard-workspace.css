@@ -1107,9 +1107,9 @@ html:has(.dw-wall-filters) {scroll-padding-top:72px}
 .canvas-test-drill-scroll {max-height:360px;overflow:auto}
 .canvas-test-drill-table {width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
 .canvas-test-drill-table th,.canvas-test-drill-table td {padding:10px 12px;border-bottom:1px solid #f7d6dd;text-align:left;white-space:nowrap}
-.canvas-test-drill-table td:first-child {white-space:normal;min-width:170px}
-.canvas-test-drill-table td:first-child strong {display:block;color:var(--canvas-text)}
-.canvas-test-drill-table td:first-child small {display:block;font-size:11px;color:var(--canvas-muted);margin-top:2px}
+.canvas-test-drill-table td:nth-child(2) {white-space:normal;min-width:170px}
+.canvas-test-drill-table td:nth-child(2) strong {display:block;color:var(--canvas-text)}
+.canvas-test-drill-table td:nth-child(2) small {display:block;font-size:11px;color:var(--canvas-muted);margin-top:2px}
 .canvas-test-drill-table thead th {position:sticky;top:0;background:#fde4e9;color:#8c0b29;font-size:11.5px;text-transform:uppercase;text-align:center;z-index:1;border-bottom:1px solid #f2b8c4}
 .canvas-test-drill-table td.is-num {text-align:center;font-weight:700}
 .canvas-test-drill-table tbody tr:nth-child(even) {background:#fff8f9}

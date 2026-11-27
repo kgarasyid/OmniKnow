@@ -81,13 +81,13 @@ function setTestDeepDiveProgram(program) {
 }
 
 function setTestDeepDiveSort(key) {
- const validKeys = ['name','channel','area','pre','post','delta'];
+ const validKeys = ['id','name','channel','area','pre','post','delta'];
  if (!validKeys.includes(key)) return;
  if (testDeepDiveSortKey === key) {
   testDeepDiveSortDir = testDeepDiveSortDir === 'asc' ? 'desc' : 'asc';
  } else {
   testDeepDiveSortKey = key;
-  testDeepDiveSortDir = ['name','channel','area'].includes(key) ? 'asc' : 'desc';
+  testDeepDiveSortDir = ['id','name','channel','area'].includes(key) ? 'asc' : 'desc';
  }
 }
 
@@ -186,7 +186,7 @@ function dashboardTestDeepDive(training, breakdown) {
   : programRows;
  const sortFactor = testDeepDiveSortDir === 'asc' ? 1 : -1;
  const sortedRows = [...filteredRows].sort((a,b) => {
-  if (['name','channel','area'].includes(testDeepDiveSortKey)) {
+  if (['id','name','channel','area'].includes(testDeepDiveSortKey)) {
    return sortFactor * String(a[testDeepDiveSortKey] || '').localeCompare(String(b[testDeepDiveSortKey] || ''), 'id-ID')
     || String(a.name || '').localeCompare(String(b.name || ''), 'id-ID');
   }
@@ -211,7 +211,7 @@ function dashboardTestDeepDive(training, breakdown) {
   <header class="canvas-test-drill-header">
    <div>
     <h4>${activeMeta?'<i aria-hidden="true"></i>':''}Daftar peserta · ${activeMeta?activeMeta.label:'Semua hasil'}${testDeepDiveProgram?` · ${el(testDeepDiveProgram)}`:''} (${number.format(sortedRows.length)} hasil)</h4>
-    <p>Klik judul kolom untuk mengurutkan nama, CTP, area, pre-test, post-test, atau selisih.</p>
+    <p>Klik judul kolom untuk mengurutkan NIK, nama, CTP, area, pre-test, post-test, atau selisih.</p>
    </div>
    <div class="canvas-test-drill-actions">
     <button type="button" class="canvas-test-pill${!activeMeta?' is-active is-all':''}" data-test-movement="">Semua (${number.format(totalPairs)})</button>
@@ -219,13 +219,14 @@ function dashboardTestDeepDive(training, breakdown) {
    </div>
   </header>
   ${sortedRows.length ? `<div class="canvas-test-drill-scroll" tabindex="0"><table class="canvas-test-drill-table">
-   <thead><tr>${sortHead('name','Nama')}${sortHead('channel','CTP')}${sortHead('area','Area')}${sortHead('pre','Pre-test',true)}${sortHead('post','Post-test',true)}${sortHead('delta','Selisih',true)}</tr></thead>
+   <thead><tr>${sortHead('id','NIK',true)}${sortHead('name','Nama')}${sortHead('channel','CTP')}${sortHead('area','Area')}${sortHead('pre','Pre-test',true)}${sortHead('post','Post-test',true)}${sortHead('delta','Selisih',true)}</tr></thead>
    <tbody>${sortedRows.map(row => {
     const delta = Number(row.delta) || 0;
     const deltaClass = delta > 0 ? 'is-up' : delta < 0 ? 'is-down' : '';
     const deltaText = `${delta > 0 ? '▲ +' : delta < 0 ? '▼ -' : '→ '}${fmt(Math.abs(delta))}`;
     const metaNote = [row.program || row.title, row.date].filter(Boolean).join(' · ');
     return `<tr>
+     <td class="is-num">${el(row.id || '—')}</td>
      <td><strong>${el(row.name)}</strong>${metaNote?`<small>${el(metaNote)}</small>`:''}</td>
      <td>${el(row.channel)}</td>
      <td>${el(row.area)}</td>
