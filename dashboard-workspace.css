@@ -635,19 +635,33 @@
   background:var(--canvas-panel);
   box-shadow:0 4px 14px #1b365d1a;
 }
-.dw-area-options > label {
+.dw-workspace .field .dw-area-options > label {
   display:flex;
+  flex-direction:row;
   align-items:center;
   gap:8px;
-  padding:5px 7px;
+  min-height:34px;
+  padding:7px 9px;
   border-radius:4px;
   color:var(--canvas-text);
   font-size:12px;
+  line-height:1.4;
+  white-space:nowrap;
   cursor:pointer;
 }
 .dw-area-options > label:first-child {font-weight:800}
 .dw-area-options > label:hover {background:var(--canvas-tint)}
-.dw-area-options input {margin:0;accent-color:#cf002e}
+.dw-workspace .field .dw-area-options input[type="checkbox"] {
+  flex:0 0 16px;
+  width:16px;
+  height:16px;
+  min-width:16px;
+  min-height:16px;
+  margin:0;
+  padding:0;
+  accent-color:var(--canvas-blue);
+  cursor:pointer;
+}
 .dw-wall-filters .dw-filter-title {grid-area:reset;padding:0;background:transparent}
 .dw-wall-filters .dw-filter-title strong,.dw-wall-filters .dw-scope {display:none}
 .dw-wall-filters #dashboardResetFilters {
