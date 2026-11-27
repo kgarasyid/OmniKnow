@@ -107,9 +107,9 @@ function dashboardTestDeepDive(training, breakdown) {
   turun: programRows.filter(row => row.movement === 'turun').length,
  } : (training.pairMovement || {});
  const movementMeta = [
-  {key:'naik',label:'Naik',color:'#19b995',textColor:'#0b7a60'},
-  {key:'tetap',label:'Tetap',color:'#ffbf47',textColor:'#9a6700'},
-  {key:'turun',label:'Turun',color:'#f4516c',textColor:'#b81d38'},
+  {key:'naik',label:'Naik',color:'#168049',textColor:'#116338'},
+  {key:'tetap',label:'Tetap',color:'#94a3b8',textColor:'#475569'},
+  {key:'turun',label:'Turun',color:'#dc2626',textColor:'#b91c1c'},
  ];
  const cx = 280, cy = 145, outerR = 76, innerR = 46;
  const toXY = (rad, radius) => [cx + radius * Math.cos(rad), cy + radius * Math.sin(rad)];
