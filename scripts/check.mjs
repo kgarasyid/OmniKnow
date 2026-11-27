@@ -13,7 +13,7 @@ assert.match(html, /<title>OmniKnow/);
 const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)];
 assert.ok(scripts.length > 0, 'Application script not found.');
 scripts.forEach((match, index) => new Script(match[1], { filename: `inline-script-${index + 1}.js` }));
-for (const file of ['survey-monitor.js', 'survey-feed-template.gs', 'dashboard-period.js', 'dashboard-insights.js', 'dashboard-hard-skill.js', 'dashboard-downloads.js', 'dashboard-workspace.js', 'dashboard-workspace.css', 'manrope.woff2', 'manrope-OFL.txt']) {
+for (const file of ['help.html', 'help.js', 'survey-monitor.js', 'survey-feed-template.gs', 'dashboard-period.js', 'dashboard-insights.js', 'dashboard-hard-skill.js', 'dashboard-downloads.js', 'dashboard-workspace.js', 'dashboard-workspace.css', 'manrope.woff2', 'manrope-OFL.txt']) {
   const bytes = await readFile(new URL(file, root));
   assert.ok(bytes.equals(await readFile(new URL('dist/' + file, root))), `${file} build differs`);
   if (/\.(js|gs)$/.test(file)) new Script(bytes.toString(), {filename:file});

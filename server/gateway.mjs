@@ -3,7 +3,7 @@ import {authConfig,authRoute,session,loginPage} from './auth.mjs';
 import {reportData} from './report-data.mjs';
 import {handleSurveyRequest} from '../api/survey-feed.js';
 import {trainingResults} from './training-results.mjs';
-const assets={'/local-grapari-map':'grapari-map.html','/':'index.html','/index.html':'index.html',...Object.fromEntries(['training-results.html','dashboard-hard-skill.js','dashboard-workspace.js','dashboard-workspace.css','dashboard-insights.js','dashboard-period.js','dashboard-downloads.js','survey-monitor.js','survey-feed-template.gs','manrope.woff2','manrope-OFL.txt'].map(f=>['/'+f,f]))};
+const assets={'/local-grapari-map':'grapari-map.html','/':'index.html','/index.html':'index.html',...Object.fromEntries(['training-results.html','help.html','help.js','dashboard-hard-skill.js','dashboard-workspace.js','dashboard-workspace.css','dashboard-insights.js','dashboard-period.js','dashboard-downloads.js','survey-monitor.js','survey-feed-template.gs','manrope.woff2','manrope-OFL.txt'].map(f=>['/'+f,f]))};
 export async function gateway(request,{root=new URL('../dist/',import.meta.url),fetcher=fetch}={}){
  const path=new URL(request.url).pathname,base={'Cache-Control':'no-store','Referrer-Policy':'no-referrer','X-Content-Type-Options':'nosniff','X-Frame-Options':path==='/local-grapari-map'?'SAMEORIGIN':'DENY'};
  const requireMicrosoft=process.env.AUTH_MODE==='microsoft';

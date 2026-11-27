@@ -154,8 +154,10 @@ const server = createServer(async (request, response) => {
       ? askUnitDetails(data,url.searchParams) : localAskDrilldown(data,url.searchParams);
     return jsonResponse(request,response,report ? 200 : 400,report ?? {error:'Invalid ASK scope'});
   }
-  const assets = {'/dashboard-period.js':'text/javascript; charset=utf-8','/dashboard-insights.js':'text/javascript; charset=utf-8','/dashboard-downloads.js':'text/javascript; charset=utf-8','/survey-monitor.js':'text/javascript; charset=utf-8','/survey-feed-template.gs':'text/plain; charset=utf-8','/dashboard-workspace.js':'text/javascript; charset=utf-8','/dashboard-workspace.css':'text/css; charset=utf-8'};
-  if (!isPreview) assets['/ringkasan-ask.html'] = 'text/html; charset=utf-8';
+  const assets = {'/dashboard-period.js':'text/javascript; charset=utf-8','/dashboard-insights.js':'text/javascript; charset=utf-8','/dashboard-downloads.js':'text/javascript; charset=utf-8','/survey-monitor.js':'text/javascript; charset=utf-8','/survey-feed-template.gs':'text/plain; charset=utf-8','/dashboard-workspace.js':'text/javascript; charset=utf-8','/dashboard-workspace.css':'text/css; charset=utf-8','/help.html':'text/html; charset=utf-8','/help.js':'text/javascript; charset=utf-8'};
+  if (!isPreview) {
+    assets['/ringkasan-ask.html'] = 'text/html; charset=utf-8';
+  }
   assets['/manrope.woff2'] = 'font/woff2';
   assets['/manrope-OFL.txt'] = 'text/plain; charset=utf-8';
   assets['/dashboard-hard-skill.js'] = 'text/javascript; charset=utf-8';
@@ -165,13 +167,13 @@ const server = createServer(async (request, response) => {
     return response.end('Not found');
   }
   try {
-    const body = await readFile(assets[path] ? new URL('.' + path, new URL(isPreview ? '../dist/' : '../', import.meta.url)) : entry);
+    const served = await readFile(assets[path] ? new URL('.' + path, new URL(isPreview ? '../dist/' : '../', import.meta.url)) : entry);
     response.writeHead(200, {
       'Content-Type': assets[path] || 'text/html; charset=utf-8',
-      'Content-Length': body.length,
+      'Content-Length': served.length,
       'Cache-Control': 'no-store'
     });
-    response.end(request.method === 'HEAD' ? undefined : body);
+    response.end(request.method === 'HEAD' ? undefined : served);
   } catch {
     response.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
     response.end('Could not read index.html');
