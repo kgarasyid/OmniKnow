@@ -56,6 +56,198 @@ function extraCharts(xs,tab=dashboardTab,sub=dashboardSub[tab]){
   return `<div class="dw-grid di-charts">${dashCard('Score distribution',data.metric+' · agent counts',insightBars(bands,Math.max(1,...bands.map(b=>b.value))))}${dashCard('Regional score comparison','Average score / 100 · click a region to filter this page',insightBars(regionRows))}</div>${tab===0||tab===4?pairedChangeChart(xs):''}`;
 }
 function pairedChangeChart(xs){const rows=assessmentRows(xs);return dashCard('Pre / post learning movement','Each dot is one matched agent. Horizontal: pre-test; vertical: post-test. Click a dot for agent details.',`<svg class="di-scatter" viewBox="0 0 560 290" role="group" aria-label="Pre and post score scatter plot"><path d="M40 20V250H530" fill="none" stroke="#6B7280"/><path d="M40 250L530 20" fill="none" stroke="#6B7280" stroke-dasharray="5 5"/>${[0,25,50,75,100].map(v=>`<text x="${40+4.9*v}" y="269" text-anchor="middle">${v}</text><text x="30" y="${254-2.3*v}" text-anchor="end">${v}</text>`).join('')}<text x="280" y="286" text-anchor="middle">Pre-test score / 100</text><text x="42" y="14">Post-test score / 100</text>${rows.map(a=>`<circle tabindex="0" role="button" data-agent="${el(a.id)}" aria-label="${el(a.name+' pre '+a.pre+', post '+a.post)}" data-chart-tip="${el(a.name+' · '+a.ctp+'\nPre '+a.pre+' · Post '+a.post+' · Gain '+(a.post-a.pre).toFixed(1)+' pp')}" cx="${40+Number(a.pre)*4.9}" cy="${250-Number(a.post)*2.3}" r="5" fill="${a.post<a.pre?'#C8202E':'#1B4F8A'}" stroke="white"/>`).join('')}</svg><p class="small">Dashed line: no score change. Blue: unchanged or improved; red: lower post-test. ${rows.length} valid pairs; overlapping dots can represent multiple agents.</p>`)}
+
+let testDeepDiveMovement = '';
+let testDeepDiveProgram = '';
+let testDeepDiveSortKey = 'delta';
+let testDeepDiveSortDir = 'desc';
+
+function setTestDeepDiveMovement(key) {
+ if (!['naik','tetap','turun'].includes(key)) {
+  testDeepDiveMovement = '';
+  return;
+ }
+ if (testDeepDiveMovement === key) {
+  testDeepDiveMovement = '';
+  return;
+ }
+ testDeepDiveMovement = key;
+ testDeepDiveSortKey = 'delta';
+ testDeepDiveSortDir = key === 'turun' ? 'asc' : 'desc';
+}
+
+function setTestDeepDiveProgram(program) {
+ testDeepDiveProgram = ['Bad Ticket','ACS Booster'].includes(program) ? program : '';
+}
+
+function setTestDeepDiveSort(key) {
+ const validKeys = ['name','channel','area','pre','post','delta'];
+ if (!validKeys.includes(key)) return;
+ if (testDeepDiveSortKey === key) {
+  testDeepDiveSortDir = testDeepDiveSortDir === 'asc' ? 'desc' : 'asc';
+ } else {
+  testDeepDiveSortKey = key;
+  testDeepDiveSortDir = ['name','channel','area'].includes(key) ? 'asc' : 'desc';
+ }
+}
+
+function dashboardTestDeepDive(training, breakdown) {
+ if (!training?.pairs || !breakdown) return '';
+ const number = new Intl.NumberFormat('id-ID');
+ const decimal = new Intl.NumberFormat('id-ID', {maximumFractionDigits: 1});
+ const fmt = (value, unit = '') => decimal.format(value) + unit;
+ const allPairDetails = Array.isArray(breakdown.pairDetails) ? breakdown.pairDetails : [];
+ const programRows = testDeepDiveProgram
+  ? allPairDetails.filter(row => row.program === testDeepDiveProgram)
+  : allPairDetails;
+ const totalPairs = allPairDetails.length ? programRows.length : (training.pairs || 0);
+ const movement = allPairDetails.length ? {
+  naik: programRows.filter(row => row.movement === 'naik').length,
+  tetap: programRows.filter(row => row.movement === 'tetap').length,
+  turun: programRows.filter(row => row.movement === 'turun').length,
+ } : (training.pairMovement || {});
+ const movementMeta = [
+  {key:'naik',label:'Naik',color:'#19b995',textColor:'#0b7a60'},
+  {key:'tetap',label:'Tetap',color:'#ffbf47',textColor:'#9a6700'},
+  {key:'turun',label:'Turun',color:'#f4516c',textColor:'#b81d38'},
+ ];
+ const cx = 280, cy = 145, outerR = 76, innerR = 46;
+ const toXY = (rad, radius) => [cx + radius * Math.cos(rad), cy + radius * Math.sin(rad)];
+ const arcPath = (startDeg, endDeg) => {
+  const sRad = startDeg * Math.PI / 180;
+  const eRad = endDeg * Math.PI / 180;
+  const [x1, y1] = toXY(sRad, outerR);
+  const [x2, y2] = toXY(eRad, outerR);
+  const [x3, y3] = toXY(eRad, innerR);
+  const [x4, y4] = toXY(sRad, innerR);
+  const large = endDeg - startDeg > 180 ? 1 : 0;
+  return `M${x1.toFixed(2)} ${y1.toFixed(2)} A${outerR} ${outerR} 0 ${large} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} L${x3.toFixed(2)} ${y3.toFixed(2)} A${innerR} ${innerR} 0 ${large} 0 ${x4.toFixed(2)} ${y4.toFixed(2)} Z`;
+ };
+ let runningDeg = -90;
+ const slices = totalPairs ? movementMeta.map(item => {
+  const value = movement[item.key] || 0;
+  const pct = value / totalPairs * 100;
+  const sweep = value / totalPairs * 360;
+  const startDeg = runningDeg;
+  const endDeg = runningDeg + sweep;
+  const midRad = ((startDeg + endDeg) / 2) * Math.PI / 180;
+  runningDeg = endDeg;
+  const [ax, ay] = toXY(midRad, outerR);
+  const [ex, ey] = toXY(midRad, outerR + 20);
+  const isRight = Math.cos(midRad) >= 0;
+  return {...item, value, pct, startDeg, endDeg, ax, ay, ex, ey, ly: ey, isRight};
+ }) : [];
+ const spreadSide = sideSlices => {
+  sideSlices.sort((a,b) => a.ly - b.ly);
+  const minGap = 58;
+  for (let i = 1; i < sideSlices.length; i++) {
+   if (sideSlices[i].ly - sideSlices[i-1].ly < minGap) sideSlices[i].ly = sideSlices[i-1].ly + minGap;
+  }
+  const maxY = 250;
+  for (let i = sideSlices.length - 1; i >= 0; i--) {
+   const limit = i === sideSlices.length - 1 ? maxY : sideSlices[i+1].ly - minGap;
+   if (sideSlices[i].ly > limit) sideSlices[i].ly = limit;
+   if (sideSlices[i].ly < 42) sideSlices[i].ly = 42;
+  }
+ };
+ spreadSide(slices.filter(s => s.value > 0 && s.isRight));
+ spreadSide(slices.filter(s => s.value > 0 && !s.isRight));
+ const donutSvg = totalPairs ? `<svg class="canvas-test-donut-svg" viewBox="0 0 560 290" role="group" aria-label="${number.format(movement.naik||0)} naik, ${number.format(movement.tetap||0)} tetap, ${number.format(movement.turun||0)} turun">
+  ${slices.filter(s => s.value > 0).map(s => {
+   const active = testDeepDiveMovement === s.key;
+   const lx = s.isRight ? 394 : 166;
+   const labelText = `${number.format(s.value)} (${fmt(s.pct,'%')})`;
+   const iconX = s.isRight ? lx + 8 : lx - 23;
+   const valueX = s.isRight ? lx + 28 : lx - 28;
+   const titleX = s.isRight ? lx + 8 : lx - 8;
+   const anchor = s.isRight ? 'start' : 'end';
+   const shape = s.pct >= 99.99
+    ? `<circle cx="${cx}" cy="${cy}" r="${(outerR+innerR)/2}" fill="none" stroke="${s.color}" stroke-width="${outerR-innerR}"/>`
+    : `<path d="${arcPath(s.startDeg, s.endDeg)}" fill="${s.color}"/>`;
+   return `<g class="canvas-test-slice${active?' is-active':''}" data-test-movement="${s.key}" role="button" tabindex="0" aria-pressed="${active}" aria-label="${s.label}: ${number.format(s.value)} peserta (${fmt(s.pct,'%')}). Klik untuk filter daftar peserta.">
+    ${shape}
+    <circle class="canvas-test-leader-dot" cx="${s.ax.toFixed(1)}" cy="${s.ay.toFixed(1)}" r="3.6" fill="${s.color}"/>
+    <polyline class="canvas-test-leader-line" points="${s.ax.toFixed(1)},${s.ay.toFixed(1)} ${s.ex.toFixed(1)},${s.ly.toFixed(1)} ${lx},${s.ly.toFixed(1)}" fill="none" stroke="${s.color}" stroke-width="2"/>
+    <text class="canvas-test-callout-title" x="${titleX}" y="${(s.ly - 7).toFixed(1)}" text-anchor="${anchor}" fill="${s.textColor}">${s.label}</text>
+    <g transform="translate(${iconX},${(s.ly + 2).toFixed(1)}) scale(1.22)" fill="none" stroke="${s.textColor}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+     <circle cx="6" cy="4" r="2.3"/><path d="M1.8 11.2c0-2 1.9-3.2 4.2-3.2s4.2 1.2 4.2 3.2"/>
+    </g>
+    <text class="canvas-test-callout-value" x="${valueX}" y="${(s.ly + 16).toFixed(1)}" text-anchor="${anchor}">${labelText}</text>
+   </g>`;
+  }).join('')}
+  <g transform="translate(${cx - 15},${cy - 34}) scale(2.5)" fill="none" stroke="#183458" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+   <circle cx="6" cy="4" r="2.3"/><path d="M1.8 11.2c0-2 1.9-3.2 4.2-3.2s4.2 1.2 4.2 3.2"/>
+  </g>
+  <text class="canvas-test-donut-total" x="${cx}" y="${cy + 24}" text-anchor="middle">${number.format(totalPairs)}</text>
+ </svg>` : '<p class="canvas-test-coverage">Belum ada hasil lengkap untuk materi yang dipilih.</p>';
+ const activeMeta = movementMeta.find(m => m.key === testDeepDiveMovement);
+ const filteredRows = activeMeta
+  ? programRows.filter(row => row.movement === activeMeta.key)
+  : programRows;
+ const sortFactor = testDeepDiveSortDir === 'asc' ? 1 : -1;
+ const sortedRows = [...filteredRows].sort((a,b) => {
+  if (['name','channel','area'].includes(testDeepDiveSortKey)) {
+   return sortFactor * String(a[testDeepDiveSortKey] || '').localeCompare(String(b[testDeepDiveSortKey] || ''), 'id-ID')
+    || String(a.name || '').localeCompare(String(b.name || ''), 'id-ID');
+  }
+  return sortFactor * ((Number(a[testDeepDiveSortKey]) || 0) - (Number(b[testDeepDiveSortKey]) || 0))
+   || String(a.name || '').localeCompare(String(b.name || ''), 'id-ID');
+ });
+ const sortHead = (key, label, numeric = false) => {
+  const active = testDeepDiveSortKey === key;
+  const arrow = active ? (testDeepDiveSortDir === 'asc' ? '▲' : '▼') : '⇅';
+  const ariaSort = active ? (testDeepDiveSortDir === 'asc' ? 'ascending' : 'descending') : 'none';
+  return `<th scope="col" aria-sort="${ariaSort}" class="${numeric?'is-num':''}"><button type="button" class="canvas-test-sort-btn${active?' is-active':''}" data-test-sort="${key}">${el(label)} <span aria-hidden="true">${arrow}</span></button></th>`;
+ };
+ const programTabs = [
+  ['','Semua Materi'],
+  ['Bad Ticket','Bad Ticket'],
+  ['ACS Booster','ACS Booster'],
+ ].map(([value, label]) => {
+  const count = value ? allPairDetails.filter(r => r.program === value).length : allPairDetails.length;
+  return `<button type="button" class="canvas-test-program-btn${testDeepDiveProgram===value?' is-active':''}" data-test-program="${value}">${label}${allPairDetails.length?` (${number.format(count)})`:''}</button>`;
+ }).join('');
+ const drillPanel = `<section class="canvas-test-drill-panel${activeMeta?` is-${activeMeta.key}`:''}" aria-label="Daftar peserta pre-test dan post-test">
+  <header class="canvas-test-drill-header">
+   <div>
+    <h4>${activeMeta?'<i aria-hidden="true"></i>':''}Daftar peserta · ${activeMeta?activeMeta.label:'Semua hasil'}${testDeepDiveProgram?` · ${el(testDeepDiveProgram)}`:''} (${number.format(sortedRows.length)} hasil)</h4>
+    <p>Klik judul kolom untuk mengurutkan nama, CTP, area, pre-test, post-test, atau selisih.</p>
+   </div>
+   <div class="canvas-test-drill-actions">
+    <button type="button" class="canvas-test-pill${!activeMeta?' is-active is-all':''}" data-test-movement="">Semua (${number.format(totalPairs)})</button>
+    ${movementMeta.map(m => `<button type="button" class="canvas-test-pill is-${m.key}${m.key===testDeepDiveMovement?' is-active':''}" data-test-movement="${m.key}">${m.label} (${number.format(movement[m.key]||0)})</button>`).join('')}
+   </div>
+  </header>
+  ${sortedRows.length ? `<div class="canvas-test-drill-scroll" tabindex="0"><table class="canvas-test-drill-table">
+   <thead><tr>${sortHead('name','Nama')}${sortHead('channel','CTP')}${sortHead('area','Area')}${sortHead('pre','Pre-test',true)}${sortHead('post','Post-test',true)}${sortHead('delta','Selisih',true)}</tr></thead>
+   <tbody>${sortedRows.map(row => {
+    const delta = Number(row.delta) || 0;
+    const deltaClass = delta > 0 ? 'is-up' : delta < 0 ? 'is-down' : '';
+    const deltaText = `${delta > 0 ? '▲ +' : delta < 0 ? '▼ -' : '→ '}${fmt(Math.abs(delta))}`;
+    const metaNote = [row.program || row.title, row.date].filter(Boolean).join(' · ');
+    return `<tr>
+     <td><strong>${el(row.name)}</strong>${metaNote?`<small>${el(metaNote)}</small>`:''}</td>
+     <td>${el(row.channel)}</td>
+     <td>${el(row.area)}</td>
+     <td class="is-num">${fmt(row.pre)}</td>
+     <td class="is-num">${fmt(row.post)}</td>
+     <td class="is-num ${deltaClass}">${deltaText}</td>
+    </tr>`;
+   }).join('')}</tbody>
+  </table></div>` : '<p class="canvas-test-coverage" style="padding:12px 15px;margin:0">Rincian peserta belum tersedia untuk filter ini.</p>'}
+ </section>`;
+ return `<section class="canvas-test-deep-dive" aria-labelledby="canvas-test-deep-title">
+  <div class="canvas-test-deep-head">
+   <div>
+    <h3 id="canvas-test-deep-title">Performance Pre/Post Test</h3>
+    <p class="canvas-test-coverage">n = hasil lengkap per peserta per sesi. Jika tidak ada warna yang diklik, tabel menampilkan semua peserta.</p>
+   </div>
+   <div class="canvas-test-program-filter" role="group" aria-label="Filter materi">${programTabs}</div>
+  </div>
+  <div class="canvas-test-pie-layout">${donutSvg}<p class="canvas-test-donut-hint">Klik warna atau label <strong>Naik</strong>, <strong>Tetap</strong>, atau <strong>Turun</strong> untuk memfilter tabel; klik lagi untuk menampilkan semua.</p></div>
+  ${drillPanel}
+ </section>`;
+}
 function dashboardEnrichment(xs){if(dashboardTab===1)return '';return `${dashboardTab===0?'':participantOverview(xs)}${extraCharts(xs)}${rankingPanel(rankDataset(xs))}${dashboardTab===0||(dashboardTab===4&&dashboardSub[4]!=='Reguler Try Out')?agentVocPanel(xs):''}`}
 function alignNumericTableCells(root=document) {
  root.querySelectorAll('table tbody td, table tbody th').forEach(cell=>{
@@ -622,14 +814,10 @@ function dashboardAskSegmentPass(groups,{dimensions,period,multiMonth,locations,
   ['Call In','Call Center','Call Center'],
   ['E-Care','E-Care','E-Care'],
  ];
- const segments = [
-  ...standardSegments,
-  ['GraPARI model belum tercatat','GraPARI · Model belum tercatat','GraPARI'],
- ].filter(([segment])=>groups[segment]?.total);
+ const segments = standardSegments.filter(([segment])=>groups[segment]?.total);
  if (!segments.length) return '';
  const number = new Intl.NumberFormat('id-ID',{maximumFractionDigits:1});
  const unit = multiMonth ? 'penilaian CSR' : 'CSR dinilai';
- const unmappedTotal = groups['GraPARI model belum tercatat']?.total;
  const chartSegments = national ? standardSegments : segments;
  const charts = chartSegments.map(([segment,label,channel],segmentIndex)=>{
   const icon = dashboardAskChannelIcon(channel);
@@ -752,7 +940,6 @@ function dashboardAskSegmentPass(groups,{dimensions,period,multiMonth,locations,
    ${charts.map(({card})=>card).join('')}
   </div>`}
   ${charts.map(({details})=>details).join('')}
-  ${national && unmappedTotal?`<p class="canvas-pass-unmapped">Model GraPARI belum tercatat · ${number.format(unmappedTotal)} ${unit}</p>`:''}
  </article>`;
 }
 
@@ -880,8 +1067,8 @@ function dashboardAskReport({scope,channel,period,priorPeriod,priorShort,compari
   {id:'grapari',label:'GraPARI',icon:'GraPARI',rows:groups.filter(row=>row.channel==='GraPARI')},
   {id:'contact',label:'Contact Center',icon:'Call Center',rows:groups.filter(row=>row.channel!=='GraPARI')},
  ].filter(group=>group.rows.length);
- if (currentTotals.total || (!multiMonth && previousTotals.total)) {
-  const total = cohort(allChannels && scope==='Nasional'?'Nasional':'Total cakupan','',currentTotals,previousTotals);
+ if (allChannels && (currentTotals.total || (!multiMonth && previousTotals.total))) {
+  const total = cohort(scope==='Nasional'?'Nasional':'Total cakupan','',currentTotals,previousTotals);
   performanceRows.push({...total,subtotal:true});
  }
  const dimensionRows = dimensions.map((label,index)=>({
@@ -1002,7 +1189,7 @@ function dashboardCsrPie(groups) {
  if (!rows.length) return '<p>Data jumlah CSR lokal belum tersedia untuk periode ini.</p>';
  const colors = {
   'GraPARI · MOMO':'#9f1239','GraPARI · TOMO':'#e6002b','Call Center':'var(--canvas-contact-center-green)',
-  'E-Care':'var(--canvas-ecare-blue)','GraPARI · Model belum tercatat':'#fca5b5','CTP belum terpetakan':'#7a657a',
+  'E-Care':'var(--canvas-ecare-blue)','CTP belum terpetakan':'#7a657a',
  };
  const total = rows.reduce((sum,row)=>sum+row.value,0);
  const counts = new Intl.NumberFormat('id-ID');
@@ -1033,11 +1220,10 @@ function dashboardCsrPie(groups) {
    const {anchor,bend,percentage,value,label,color} = slice;
    const y = Math.max(17,lastY+27,Math.min(bend.y,181-(side.length-1-index)*27));
    lastY = y;
-   const shortLabel = label==='GraPARI · Model belum tercatat' ? 'Model belum tercatat' : label;
    return `<g class="canvas-pie-callout">
     <polyline points="${anchor.x},${anchor.y} ${bend.x},${bend.y} ${edge},${y}"/>
     <circle cx="${anchor.x}" cy="${anchor.y}" r="2.2" fill="${color}"/>
-    <text x="${labelX}" y="${y-1}" text-anchor="${right?'start':'end'}">${el(shortLabel)}</text>
+    <text x="${labelX}" y="${y-1}" text-anchor="${right?'start':'end'}">${el(label)}</text>
     <text class="canvas-pie-value" x="${labelX}" y="${y+12}" text-anchor="${right?'start':'end'}">${el(percentage)} (${counts.format(value)})</text>
    </g>`;
   });
@@ -1204,6 +1390,15 @@ function ctpExecutiveDashboard(agents, trial=false) {
   return total;
  },{count:0,sum:0,high:0,mid:0,low:0});
  const useAskTryout = askTryout.count>0;
+ const nationalTryout = (multiMonth ? trialMonths.map(({key})=>localAskReport?.[key]) : [localAskReport?.[reportMonth]])
+  .reduce((total,snapshot)=>{
+   for (const group of Object.values(snapshot?.tryoutScores || {})) {
+    total.count += group.count || 0;
+    total.sum += group.sum || 0;
+   }
+   return total;
+  },{count:0,sum:0});
+ const nationalTryoutAverage = nationalTryout.count ? nationalTryout.sum/nationalTryout.count : null;
  const tryoutAverage = useAskTryout ? askTryout.sum/askTryout.count
   : tryoutLocal ? practice.score : average(scoredTryout,'score');
  const tryoutCoverage = (practice.coverage || []).map(coverage=>{
@@ -1246,8 +1441,6 @@ function ctpExecutiveDashboard(agents, trial=false) {
   const allowed = LOCAL_ASK_CHANNELS[dashboardChannelLabel()] || [];
   cohortDefinitions.splice(0,cohortDefinitions.length,...cohortDefinitions.filter(([,key])=>allowed.includes(key)));
  }
- const unclassified = agent=>agent.ctp==='GraPARI' && !['MOMO','TOMO'].includes(askSegment(agent));
- if (agents.some(unclassified) || programRoster.some(unclassified)) cohortDefinitions.splice(2,0,['GraPARI · Model belum tercatat',null,unclassified]);
  const cohorts = cohortDefinitions.map(([label,key,matches])=>{
   const rows = agents.filter(matches);
   const programAgentIds = new Set(programRoster.filter(matches).map(agent=>agent.id));
@@ -1383,7 +1576,7 @@ function ctpExecutiveDashboard(agents, trial=false) {
   }).join('')}</dl>`;
   const [gainSymbol,gainTone,gainDirection] = pairedGain>0 ? ['▲',' is-up','Naik'] : pairedGain<0 ? ['▼',' is-down','Turun'] : ['→','','Tetap'];
   const pairedKpi = pairedGain==null ? headline(null) : `<span class="canvas-kpi-score-flow" aria-label="Pre-test ${score.format(pairedPre)}, post-test ${score.format(pairedPost)}">
-   ${headline(pairedPre)}<span aria-hidden="true">→</span>${headline(pairedPost,'/100')}</span>
+   <span><small>Pre-test</small>${headline(pairedPre)}</span><span aria-hidden="true">→</span><span><small>Post-test</small>${headline(pairedPost,'/100')}</span></span>
    <span class="canvas-kpi-mom"><strong class="canvas-kpi-test-gain${gainTone}" aria-label="${gainDirection} ${fmt(Math.abs(pairedGain),'pts')}">${gainSymbol} ${fmt(Math.abs(pairedGain),'pts')}</strong><span>Selisih pre–post</span></span>`;
   const icon = path=>`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="${path}"/></svg>`;
@@ -1407,14 +1600,14 @@ function ctpExecutiveDashboard(agents, trial=false) {
     headline(total,'CSR')+mom(total,prior,'CSR'),'',
     `<p>Workbook ASK lokal · ${el(csrNote)}</p><p>${total!=null&&covered!=null&&total>covered?`${number.format(total-covered)} CSR belum memiliki skor ASK valid dalam cakupan ini; Rata-rata ASK memakai ${number.format(covered)} CSR dinilai.`:'Total CSR menghitung identitas unik; Rata-rata ASK hanya menghitung CSR dengan skor valid.'}</p>${datedComparison(total,prior,'CSR')}`),
    kpi('ask','Rata-rata ASK',icon('M3 4v16h18M6 15l4-4 4 2 5-6m-4 0h4v4'),
-    headline(averageAsk,'/100',priorAsk)+mom(averageAsk,priorAsk,'poin'),`Skor berbobot · ${askCoverage}`,
+    headline(averageAsk,'/100',priorAsk)+mom(averageAsk,priorAsk,'pts'),`Skor berbobot · ${askCoverage}`,
     `<p>Workbook ASK lokal · Attitude 40%, Skill 30%, Knowledge 30%</p>${datedComparison(averageAsk,priorAsk,'/100')}`),
    kpi('skills','Training Hard Skill',icon('M14 6a4 4 0 0 0-5 5.5l-5.5 5.6a2.4 2.4 0 0 0 3.4 3.4l5.6-5.5A4 4 0 0 0 18 10l-2 2-3-3 2-2Z'),
     headline(hardTotal,'CSR',priorHard,hardSkillParticipantTone)+mom(hardTotal,priorHard,'CSR',hardSkillParticipantTone),'Peserta unik',
     `<p>${trainingLocal?loadingMessage || 'Workbook Training lokal':source(programs[hard])}${hardCoverage?' · '+hardCoverage:''}</p>${datedComparison(hardTotal,priorHard,'CSR')}`),
-   kpi('tryout','Rata-rata Tryout',icon('M9 4H5v17h14V4h-4m-6-1h6v4H9zM8 14l2.5 2.5L16 11'),
-    headline(tryoutAverage,'/100',priorTryoutAverage)+mom(tryoutAverage,priorTryoutAverage,'poin'),useAskTryout?askTryoutNote:'',
-    `<p>${useAskTryout?'Rata-rata nilai TO terisi pada skala 0–100.':tryoutNote}</p>${datedComparison(tryoutAverage,priorTryoutAverage,'/100')}`),
+   kpi('tryout','Rata-rata Tryout Nasional',icon('M9 4H5v17h14V4h-4m-6-1h6v4H9zM8 14l2.5 2.5L16 11'),
+    headline(nationalTryoutAverage,'/100'),nationalTryout.count?`Workbook ASK · ${number.format(nationalTryout.count)} nilai TO · ${el(monthLabel(reportMonth))}`:'',
+    `<p>Rata-rata seluruh nilai TO terisi secara nasional pada periode ini.</p>`),
    kpi('tests','Pre-test &amp; Post-test Reguler',icon('M3 7h17m-4-4 4 4-4 4m5 6H4m4-4-4 4 4 4'),
     pairedKpi,pairedCountNote,`<p>${pairNote}</p>${pairedComparisons}`),
   ];
@@ -1453,7 +1646,7 @@ function ctpExecutiveDashboard(agents, trial=false) {
   </section>`:'';
   const analysisScale = (suffix='')=>`<div class="canvas-analysis-scale" aria-hidden="true"><span>0${suffix}</span><span>50${suffix}</span><span>100${suffix}</span></div>`;
   const nationalAsk = ctp==='All CTPs' && locationLabel==='Nasional';
-  const priorNationalAsk = nationalAsk && !multiMonth
+  const priorSummaryAsk = !multiMonth
    ? dashboardAskTotals(Object.values(previousAsk?.groups || {})) : null;
   const csrOverview = `<article class="canvas-panel canvas-ctp"><header><h3>${el(csrTitle)}</h3>${detailsButton('canvas-ctp-detail',singleCsrChannel?'Rincian CSR':'Rincian CTP')}</header>
     <p>${el(singleCsrChannel&&!multiMonth?'CSR unik · Perbandingan bulanan':csrNote)}</p>
@@ -1462,13 +1655,13 @@ function ctpExecutiveDashboard(agents, trial=false) {
   const highLowOverview = `<article class="canvas-panel canvas-ask${nationalAsk?' is-national':''}"><header><h3>High dan Low ASK${nationalAsk?' Nasional':''}</h3><button type="button" class="canvas-link" data-dashboard-ask-detail>Laporan ASK</button></header>
     <p>${askCoverage} · High ≥80 · Low &lt;80</p>
     ${covered?`<p>Pilih angka High atau Low untuk melihat nama CSR.</p>
-    ${priorNationalAsk?.total?`<p class="canvas-pass-marker-key"><i aria-hidden="true"></i> Garis putih menandai persentase High ${el(priorLabel)}.</p>`:''}
+    ${priorSummaryAsk?.total?`<p class="canvas-pass-marker-key"><i aria-hidden="true"></i> Garis putih menandai persentase High ${el(priorLabel)}.</p>`:''}
     <ul class="canvas-ask-summary-grid">${dimensions.map((label,i)=>{
      const rate = dashboardAsk[i];
      const low = 100-rate;
      const highCount = dashboardHigh[i];
      const countUnit = multiMonth?'penilaian':'CSR';
-     const priorRate = priorNationalAsk?.total ? 100*priorNationalAsk.high[i]/priorNationalAsk.total : null;
+     const priorRate = priorSummaryAsk?.total ? 100*priorSummaryAsk.high[i]/priorSummaryAsk.total : null;
      return `<li class="canvas-ask-summary-metric">
       <h4>High ${el(label)}</h4>
       <button type="button" class="canvas-ask-summary-value" ${dashboardAskNamesAttributes(label,'high',`High ${label}`)}
@@ -1477,7 +1670,7 @@ function ctpExecutiveDashboard(agents, trial=false) {
       </button>
       <span class="canvas-ask-stacked-track" aria-hidden="true"><i style="width:${rate}%"></i>${priorRate===null?'':`<b class="canvas-pass-national-marker" style="left:clamp(2px,${priorRate}%,calc(100% - 2px))"></b>`}</span>
       <button type="button" class="canvas-ask-summary-low" ${dashboardAskNamesAttributes(label,'low',`Low ${label}`)}>Low <strong>${fmt(low,'%')}</strong><span>${number.format(covered-highCount)} ${countUnit}</span></button>
-      ${priorNationalAsk?`<div class="canvas-ask-national-mom">${priorRate===null?'Pembanding belum tersedia':`<span title="${el(priorLabel)}">${el(priorShort)} <b>${fmt(priorRate,'%')}</b></span>${dashboardAskNationalDelta(rate,priorRate)}`}</div>`:''}
+      ${priorSummaryAsk?`<div class="canvas-ask-national-mom">${priorRate===null?'Pembanding belum tersedia':`<span title="${el(priorLabel)}">${el(priorShort)} <b>${fmt(priorRate,'%')}</b></span>${dashboardAskNationalDelta(rate,priorRate)}`}</div>`:''}
      </li>`;
     }).join('')}</ul>`:'<p>Data belum tersedia</p>'}
    </article>`;
@@ -1525,9 +1718,6 @@ function ctpExecutiveDashboard(agents, trial=false) {
     </details>
    </section>`,
   });
-  const trainingTotals = [['Hard Skill',hardTotal],['Training Reguler',regularTotal]];
-  const trainingSubtitle = loadingMessage || (trainingLocal && training.attendance
-   ? `${number.format(training.attendance)} kehadiran · ${number.format(training.sessions)} sesi` : trainingNote);
   const shortcuts = ctp==='All CTPs' ? dashboardNationalShortcuts() : '';
   const nationalMap = ctp==='All CTPs' && dashboardHasLocalMap() ? dashboardNationalMapPanel(csrMonth || reportMonth,askPeriod) : '';
   return `${nationalMap}<div data-dashboard-executive-tab="ask"${dashboardReportTab==='ask'?'':' hidden'}>${executiveSummaryPanel}</div>
@@ -1554,23 +1744,7 @@ function ctpExecutiveDashboard(agents, trial=false) {
    </div>
    <div id="canvas-report-panel-training" role="tabpanel" aria-labelledby="canvas-report-tab-training"${dashboardReportTab==='training'?'':' hidden'}>
    <section class="canvas-learning-reports" aria-label="Distribusi Training">
-   <article class="canvas-panel canvas-training"><header><h2 id="canvas-training-summary-title" tabindex="-1">Training &amp; Evaluasi</h2>${detailsButton('canvas-training-detail','Rincian training')}</header>
-    <div class="canvas-training-grid"><div>
-    <p>${trainingSubtitle}</p>
-    <dl class="canvas-training-totals">${trainingTotals.map(([label,value])=>`<div><dt>${label}</dt><dd>${value==null?'Data belum tersedia':number.format(value)}</dd></div>`).join('')}</dl>
-    </div>
-    <div class="canvas-test-comparison">
-     <header><div><h4>Tes reguler</h4>${pairedCountNote?`<p>${pairedCountNote}</p>`:''}</div>
-      ${pairedGain==null?'':`<b class="canvas-test-gain${pairedGain<0?' is-down':pairedGain>0?' is-up':''}" aria-label="${pairedGain<0?'Turun':pairedGain>0?'Naik':'Tetap'} ${fmt(Math.abs(pairedGain),'pts')}">${pairedGain<0?'▼':pairedGain>0?'▲':'→'} ${fmt(Math.abs(pairedGain),'pts')}</b>`}
-     </header>
-     ${pairedGain==null?'<p>Data belum tersedia</p>':`<div class="canvas-test-score-list">${[
-       ['Pre-test',pairedPre],['Post-test',pairedPost],
-      ].map(([label,value])=>`<div><span>${label}</span><span class="canvas-bar-track" aria-hidden="true"><i style="width:${value}%"></i></span><b>${fmt(value)}</b></div>`).join('')}
-      </div>${analysisScale()}`}
-    </div>
-    </div>
-    ${tryoutSessionRows.length?`<section class="canvas-training-tryout" aria-labelledby="canvas-training-tryout-title"><header><h3 id="canvas-training-tryout-title">Nilai Tryout &amp; iFest</h3><p>Rata-rata peserta dengan nilai · Data ASK ${el(askPeriod)}</p></header><div class="canvas-training-tryout-table-wrap"><table class="canvas-training-tryout-table"><thead><tr><th>Sesi</th><th>Rata-rata nilai</th><th>Peserta bernilai</th><th>Periode nilai</th></tr></thead><tbody>${tryoutSessionRows.map(row=>`<tr><th scope="row">${el(row.session)}</th><td><span class="canvas-training-tryout-score"><span class="canvas-training-tryout-track"><i style="width:${Math.max(0,Math.min(100,row.average))}%"></i></span><b>${fmt(row.average)}</b></span></td><td>${number.format(row.count)}</td><td>${row.session==='iFest'?'Periode iFest pada sumber ASK':'Data ASK '+el(askPeriod)}</td></tr>`).join('')}</tbody></table></div><p class="canvas-training-tryout-note">TO 4 belum tersedia pada workbook ASK yang dicek. iFest ditampilkan sesuai periode pada sumber.</p></section>`:''}
-   </article>
+   ${tryoutSessionRows.length?`<article class="canvas-panel canvas-training"><section class="canvas-training-tryout" aria-labelledby="canvas-training-tryout-title"><header><h3 id="canvas-training-tryout-title">Nilai Tryout &amp; iFest</h3><p>Rata-rata peserta dengan nilai · Data ASK ${el(askPeriod)}</p></header><div class="canvas-training-tryout-table-wrap"><table class="canvas-training-tryout-table"><thead><tr><th>Sesi</th><th>Rata-rata nilai</th><th>Peserta bernilai</th><th>Periode nilai</th></tr></thead><tbody>${tryoutSessionRows.map(row=>`<tr><th scope="row">${el(row.session)}</th><td><span class="canvas-training-tryout-score"><span class="canvas-training-tryout-track"><i style="width:${Math.max(0,Math.min(100,row.average))}%"></i></span><b>${fmt(row.average)}</b></span></td><td>${number.format(row.count)}</td><td>${row.session==='iFest'?'Periode iFest pada sumber ASK':'Data ASK '+el(askPeriod)}</td></tr>`).join('')}</tbody></table></div><p class="canvas-training-tryout-note">TO 4 belum tersedia pada workbook ASK yang dicek. iFest ditampilkan sesuai periode pada sumber.</p></section></article>`:''}
    ${dashboardHardSkillSection([ctp==='All CTPs'?'':dashboardChannelLabel(),locationLabel].filter(Boolean).join(' · '))}
    </section>
    </div>

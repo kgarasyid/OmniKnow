@@ -345,7 +345,7 @@ assert.doesNotMatch(scopedTrial,/>Call Center<\/h4>/);
 assert.match(scopedTrial,/Dimensi terendah <strong>Attitude<\/strong> \(66,7\/100\)/);
 assert.match(scopedTrial,/Performance ASK – GraPARI/);
 assert.match(distribution(scopedTrial),/<strong>2<\/strong><b>66,7%<\/b>/);
-assert.match(performanceTable(scopedTrial),/Total cakupan/);
+assert.doesNotMatch(performanceTable(scopedTrial),/Total cakupan/);
 assert.match(performanceTable(scopedTrial),/<td>3<\/td>\s*<\/tr>/);
 assert.doesNotMatch(performanceTable(scopedTrial),/Call Center|E-Care|Nasional \(Semua CTP\)/);
 assert.doesNotMatch(scopedTrial,/data-ask-pass-group="Call Center"/);
@@ -407,9 +407,27 @@ assert.match(run(`setDashboardTrialPeriod('current');
  hardSkillResults.set(localLearningQuery(),{report:{totals:{attendance:0}}});
  dashboardHardSkillBody()`),/Data bulan ini belum tersedia/);
 run("resetDashboardTrialPeriod();hardSkillResults.clear();true");
-assert.match(run(`hardSkillEvaluation({
+assert.equal(run(`hardSkillEvaluation({
  pairs:10,pre:72.2,post:79.3,surveyRecorded:false
-},'Oktober 2026')`),/Pre-test &amp; Post-test[\s\S]*10 pasangan tes[\s\S]*▲ 7,1 poin[\s\S]*72,2 \/100[\s\S]*79,3 \/100/);
+},'Oktober 2026')`),'');
+const deepDiveHtml = run(`setTestDeepDiveMovement('naik');
+ dashboardTestDeepDive({
+  pairs:3,preOnly:0,postOnly:0,
+  pairMovement:{naik:2,tetap:0,turun:1},
+  pairChangeBands:{downOver5:1,downTo5:0,unchanged:0,upTo5:1,upOver5:1},
+ },{
+  channels:[{label:'GraPARI',pairs:3,pairPre:70,pairPost:76,pairMovement:{naik:2,tetap:0,turun:1}}],
+  programs:[],programChannels:[],sessions:[],
+  pairDetails:[
+   {id:'SYN-1',name:'Siti Fiktif',channel:'GraPARI',area:'Area 1',pre:65,post:80,delta:15,movement:'naik',title:'Bad Ticket',date:'2026-10-10'},
+   {id:'SYN-2',name:'Budi Fiktif',channel:'Call Center',area:'Site 1',pre:70,post:74,delta:4,movement:'naik',title:'Bad Ticket',date:'2026-10-10'},
+   {id:'SYN-3',name:'Andi Fiktif',channel:'E-Care',area:'Area 2',pre:80,post:72,delta:-8,movement:'turun',title:'Bad Ticket',date:'2026-10-10'},
+  ],
+ })`);
+assert.match(deepDiveHtml,/canvas-test-donut-svg[\s\S]*canvas-test-leader-line[\s\S]*2 \(66,7%\)/);
+assert.match(deepDiveHtml,/Daftar peserta · Naik \(2 hasil\)[\s\S]*Siti Fiktif[\s\S]*GraPARI[\s\S]*Area 1[\s\S]*65[\s\S]*80/);
+assert.doesNotMatch(deepDiveHtml,/Andi Fiktif/);
+run("setTestDeepDiveMovement('');true");
 assert.match(run(`hardSkillInsights({comparisons:{'2026-10':{
  current:{key:'2026-10',attendance:280,offline:152},
  previous:{key:'2026-09',attendance:359,offline:106},
