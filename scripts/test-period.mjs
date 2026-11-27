@@ -345,7 +345,7 @@ assert.doesNotMatch(scopedTrial,/>Call Center<\/h4>/);
 assert.match(scopedTrial,/Dimensi terendah <strong>Attitude<\/strong> \(66,7\/100\)/);
 assert.match(scopedTrial,/Performance ASK – GraPARI/);
 assert.match(distribution(scopedTrial),/<strong>2<\/strong><b>66,7%<\/b>/);
-assert.match(performanceTable(scopedTrial),/Total cakupan/);
+assert.doesNotMatch(performanceTable(scopedTrial),/Total cakupan/);
 assert.match(performanceTable(scopedTrial),/<td>3<\/td>\s*<\/tr>/);
 assert.doesNotMatch(performanceTable(scopedTrial),/Call Center|E-Care|Nasional \(Semua CTP\)/);
 assert.doesNotMatch(scopedTrial,/data-ask-pass-group="Call Center"/);

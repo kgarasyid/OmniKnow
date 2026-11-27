@@ -622,14 +622,10 @@ function dashboardAskSegmentPass(groups,{dimensions,period,multiMonth,locations,
   ['Call In','Call Center','Call Center'],
   ['E-Care','E-Care','E-Care'],
  ];
- const segments = [
-  ...standardSegments,
-  ['GraPARI model belum tercatat','GraPARI · Model belum tercatat','GraPARI'],
- ].filter(([segment])=>groups[segment]?.total);
+ const segments = standardSegments.filter(([segment])=>groups[segment]?.total);
  if (!segments.length) return '';
  const number = new Intl.NumberFormat('id-ID',{maximumFractionDigits:1});
  const unit = multiMonth ? 'penilaian CSR' : 'CSR dinilai';
- const unmappedTotal = groups['GraPARI model belum tercatat']?.total;
  const chartSegments = national ? standardSegments : segments;
  const charts = chartSegments.map(([segment,label,channel],segmentIndex)=>{
   const icon = dashboardAskChannelIcon(channel);
@@ -752,7 +748,6 @@ function dashboardAskSegmentPass(groups,{dimensions,period,multiMonth,locations,
    ${charts.map(({card})=>card).join('')}
   </div>`}
   ${charts.map(({details})=>details).join('')}
-  ${national && unmappedTotal?`<p class="canvas-pass-unmapped">Model GraPARI belum tercatat · ${number.format(unmappedTotal)} ${unit}</p>`:''}
  </article>`;
 }
 
@@ -880,8 +875,8 @@ function dashboardAskReport({scope,channel,period,priorPeriod,priorShort,compari
   {id:'grapari',label:'GraPARI',icon:'GraPARI',rows:groups.filter(row=>row.channel==='GraPARI')},
   {id:'contact',label:'Contact Center',icon:'Call Center',rows:groups.filter(row=>row.channel!=='GraPARI')},
  ].filter(group=>group.rows.length);
- if (currentTotals.total || (!multiMonth && previousTotals.total)) {
-  const total = cohort(allChannels && scope==='Nasional'?'Nasional':'Total cakupan','',currentTotals,previousTotals);
+ if (allChannels && (currentTotals.total || (!multiMonth && previousTotals.total))) {
+  const total = cohort(scope==='Nasional'?'Nasional':'Total cakupan','',currentTotals,previousTotals);
   performanceRows.push({...total,subtotal:true});
  }
  const dimensionRows = dimensions.map((label,index)=>({
@@ -1002,7 +997,7 @@ function dashboardCsrPie(groups) {
  if (!rows.length) return '<p>Data jumlah CSR lokal belum tersedia untuk periode ini.</p>';
  const colors = {
   'GraPARI · MOMO':'#9f1239','GraPARI · TOMO':'#e6002b','Call Center':'var(--canvas-contact-center-green)',
-  'E-Care':'var(--canvas-ecare-blue)','GraPARI · Model belum tercatat':'#fca5b5','CTP belum terpetakan':'#7a657a',
+  'E-Care':'var(--canvas-ecare-blue)','CTP belum terpetakan':'#7a657a',
  };
  const total = rows.reduce((sum,row)=>sum+row.value,0);
  const counts = new Intl.NumberFormat('id-ID');
@@ -1033,11 +1028,10 @@ function dashboardCsrPie(groups) {
    const {anchor,bend,percentage,value,label,color} = slice;
    const y = Math.max(17,lastY+27,Math.min(bend.y,181-(side.length-1-index)*27));
    lastY = y;
-   const shortLabel = label==='GraPARI · Model belum tercatat' ? 'Model belum tercatat' : label;
    return `<g class="canvas-pie-callout">
     <polyline points="${anchor.x},${anchor.y} ${bend.x},${bend.y} ${edge},${y}"/>
     <circle cx="${anchor.x}" cy="${anchor.y}" r="2.2" fill="${color}"/>
-    <text x="${labelX}" y="${y-1}" text-anchor="${right?'start':'end'}">${el(shortLabel)}</text>
+    <text x="${labelX}" y="${y-1}" text-anchor="${right?'start':'end'}">${el(label)}</text>
     <text class="canvas-pie-value" x="${labelX}" y="${y+12}" text-anchor="${right?'start':'end'}">${el(percentage)} (${counts.format(value)})</text>
    </g>`;
   });
@@ -1138,8 +1132,6 @@ function ctpExecutiveDashboard(agents, trial=false) {
  const csrSnapshotLabel = csrMonth ? monthLabel(csrMonth) : '';
  const localCsr = csrSnapshot?.data?.csrCounts;
  const priorCsr = previousAsk?.csrCounts;
- // Keep records without a GraPARI model in the source snapshot, but exclude them
- // from the displayed CTP count until their model can be classified.
  const totalCsr = counts=>counts ? Object.entries(counts).reduce((sum,[name,value])=>
   sum+(name==='GraPARI model belum tercatat'?0:value),0) : null;
  const total = totalCsr(localCsr), prior = totalCsr(priorCsr);
@@ -1246,8 +1238,6 @@ function ctpExecutiveDashboard(agents, trial=false) {
   const allowed = LOCAL_ASK_CHANNELS[dashboardChannelLabel()] || [];
   cohortDefinitions.splice(0,cohortDefinitions.length,...cohortDefinitions.filter(([,key])=>allowed.includes(key)));
  }
- const unclassified = agent=>agent.ctp==='GraPARI' && !['MOMO','TOMO'].includes(askSegment(agent));
- if (agents.some(unclassified) || programRoster.some(unclassified)) cohortDefinitions.splice(2,0,['GraPARI · Model belum tercatat',null,unclassified]);
  const cohorts = cohortDefinitions.map(([label,key,matches])=>{
   const rows = agents.filter(matches);
   const programAgentIds = new Set(programRoster.filter(matches).map(agent=>agent.id));
