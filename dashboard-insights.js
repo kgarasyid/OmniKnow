@@ -1325,8 +1325,6 @@ function ctpExecutiveDashboard(agents, trial=false) {
  const csrSnapshotLabel = csrMonth ? monthLabel(csrMonth) : '';
  const localCsr = csrSnapshot?.data?.csrCounts;
  const priorCsr = previousAsk?.csrCounts;
- // Keep records without a GraPARI model in the source snapshot, but exclude them
- // from the displayed CTP count until their model can be classified.
  const totalCsr = counts=>counts ? Object.entries(counts).reduce((sum,[name,value])=>
   sum+(name==='GraPARI model belum tercatat'?0:value),0) : null;
  const total = totalCsr(localCsr), prior = totalCsr(priorCsr);
