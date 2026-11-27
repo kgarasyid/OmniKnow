@@ -1453,7 +1453,7 @@ function ctpExecutiveDashboard(agents, trial=false) {
   </section>`:'';
   const analysisScale = (suffix='')=>`<div class="canvas-analysis-scale" aria-hidden="true"><span>0${suffix}</span><span>50${suffix}</span><span>100${suffix}</span></div>`;
   const nationalAsk = ctp==='All CTPs' && locationLabel==='Nasional';
-  const priorNationalAsk = nationalAsk && !multiMonth
+  const priorSummaryAsk = !multiMonth
    ? dashboardAskTotals(Object.values(previousAsk?.groups || {})) : null;
   const csrOverview = `<article class="canvas-panel canvas-ctp"><header><h3>${el(csrTitle)}</h3>${detailsButton('canvas-ctp-detail',singleCsrChannel?'Rincian CSR':'Rincian CTP')}</header>
     <p>${el(singleCsrChannel&&!multiMonth?'CSR unik · Perbandingan bulanan':csrNote)}</p>
@@ -1462,13 +1462,13 @@ function ctpExecutiveDashboard(agents, trial=false) {
   const highLowOverview = `<article class="canvas-panel canvas-ask${nationalAsk?' is-national':''}"><header><h3>High dan Low ASK${nationalAsk?' Nasional':''}</h3><button type="button" class="canvas-link" data-dashboard-ask-detail>Laporan ASK</button></header>
     <p>${askCoverage} · High ≥80 · Low &lt;80</p>
     ${covered?`<p>Pilih angka High atau Low untuk melihat nama CSR.</p>
-    ${priorNationalAsk?.total?`<p class="canvas-pass-marker-key"><i aria-hidden="true"></i> Garis putih menandai persentase High ${el(priorLabel)}.</p>`:''}
+    ${priorSummaryAsk?.total?`<p class="canvas-pass-marker-key"><i aria-hidden="true"></i> Garis putih menandai persentase High ${el(priorLabel)}.</p>`:''}
     <ul class="canvas-ask-summary-grid">${dimensions.map((label,i)=>{
      const rate = dashboardAsk[i];
      const low = 100-rate;
      const highCount = dashboardHigh[i];
      const countUnit = multiMonth?'penilaian':'CSR';
-     const priorRate = priorNationalAsk?.total ? 100*priorNationalAsk.high[i]/priorNationalAsk.total : null;
+     const priorRate = priorSummaryAsk?.total ? 100*priorSummaryAsk.high[i]/priorSummaryAsk.total : null;
      return `<li class="canvas-ask-summary-metric">
       <h4>High ${el(label)}</h4>
       <button type="button" class="canvas-ask-summary-value" ${dashboardAskNamesAttributes(label,'high',`High ${label}`)}
@@ -1477,7 +1477,7 @@ function ctpExecutiveDashboard(agents, trial=false) {
       </button>
       <span class="canvas-ask-stacked-track" aria-hidden="true"><i style="width:${rate}%"></i>${priorRate===null?'':`<b class="canvas-pass-national-marker" style="left:clamp(2px,${priorRate}%,calc(100% - 2px))"></b>`}</span>
       <button type="button" class="canvas-ask-summary-low" ${dashboardAskNamesAttributes(label,'low',`Low ${label}`)}>Low <strong>${fmt(low,'%')}</strong><span>${number.format(covered-highCount)} ${countUnit}</span></button>
-      ${priorNationalAsk?`<div class="canvas-ask-national-mom">${priorRate===null?'Pembanding belum tersedia':`<span title="${el(priorLabel)}">${el(priorShort)} <b>${fmt(priorRate,'%')}</b></span>${dashboardAskNationalDelta(rate,priorRate)}`}</div>`:''}
+      ${priorSummaryAsk?`<div class="canvas-ask-national-mom">${priorRate===null?'Pembanding belum tersedia':`<span title="${el(priorLabel)}">${el(priorShort)} <b>${fmt(priorRate,'%')}</b></span>${dashboardAskNationalDelta(rate,priorRate)}`}</div>`:''}
      </li>`;
     }).join('')}</ul>`:'<p>Data belum tersedia</p>'}
    </article>`;

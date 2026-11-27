@@ -2151,7 +2151,7 @@ button.canvas-ask-intervention:focus-visible {outline:2px solid var(--interventi
   position:relative;overflow:visible;
 }
 .canvas-ask-summary-metric .canvas-ask-stacked-track i {border-radius:inherit}
-.canvas-ask.is-national .canvas-pass-marker-key {margin:-2px 0 8px;color:var(--canvas-muted);font-size:11px}
+.canvas-ask .canvas-pass-marker-key {margin:-2px 0 8px;color:var(--canvas-muted);font-size:11px}
 .canvas-ask-national-mom {display:flex;justify-content:space-between;gap:4px 10px;color:var(--canvas-muted);font-size:11px}
 .canvas-analysis-scale {
   display:flex;justify-content:space-between;margin-top:6px;
@@ -3066,7 +3066,7 @@ button.canvas-quadrant-select::after {
 .workspace-theme table .numeric-data-cell {text-align:center;font-size:13px;font-weight:650;font-variant-numeric:tabular-nums}
 .workspace-theme .canvas-ask-rank-table :is(th,td):is(:first-child,:nth-child(n+5)) {text-align:center}
 .workspace-theme .canvas-ask-rank-table tbody :is(td:first-child,td:nth-child(n+5)) {font-size:13px}
-.canvas-ask.is-national .canvas-ask-summary-metric :is(h4,.canvas-ask-summary-value > span,.canvas-ask-summary-low,.canvas-ask-summary-low > span,.canvas-ask-national-mom) {font-size:clamp(13px,1.2vw,16px)}
+.canvas-ask .canvas-ask-summary-metric :is(h4,.canvas-ask-summary-value > span,.canvas-ask-summary-low,.canvas-ask-summary-low > span,.canvas-ask-national-mom) {font-size:clamp(13px,1.2vw,16px)}
 .canvas-ask-national-mom {align-items:center;flex-wrap:wrap;line-height:1.35}
 .canvas-ask-national-delta {display:inline-flex;flex-direction:column;align-items:center;gap:1px;white-space:nowrap;font-size:14px}
 .canvas-ask-national-delta-icon {font-size:17px;line-height:1}
