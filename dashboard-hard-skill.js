@@ -249,15 +249,10 @@ function hardSkillDetails(report) {
    '<p class="hard-skill-empty">Data sesi belum tersedia untuk pilihan ini.</p>'}</details>`;
 }
 
-function hardSkillEvaluation({pairs,pre,post,surveySubmitted,surveyRecorded},period) {
- const gain = pairs ? Math.round((post-pre)*10)/10 : 0;
- return `<details class="hard-skill-evaluation" data-hard-skill-eval${hardSkillEvaluationOpen?' open':''}>
-  <summary id="hard-skill-eval-summary">Pre-test &amp; Post-test · ${el(period)}</summary>
-  ${pairs?`<p><strong>${hardSkillCount(pairs,'pasangan tes')}</strong> dari peserta dan sesi yang sama · <b class="${gain>0?'is-up':gain<0?'is-down':''}">${gain>0?'▲':gain<0?'▼':'→'} ${hardSkillScore.format(Math.abs(gain))} poin</b></p>
-   ${hardSkillReportBars([['Pre-test',pre],['Post-test',post]].map(([label,count])=>({label,count})),100,'/100',hardSkillScore)}`:
-   '<p>Data pasangan pre-test dan post-test belum tersedia untuk filter ini.</p>'}
-  ${surveyRecorded?`<p>Survei · ${hardSkillCount(surveySubmitted,'pengisian tercatat')} pada rekap kehadiran.</p>`:'<p>Data pengisian survei belum tersedia untuk filter ini.</p>'}
- </details>`;
+function hardSkillEvaluation() {
+ const learning = dashboardLearningReport();
+ const deepDive = dashboardTestDeepDive(learning?.training,learning?.testBreakdown);
+ return deepDive ? `<section class="hard-skill-evaluation hard-skill-evaluation--deep-dive">${deepDive}</section>` : '';
 }
 
 function hardSkillReportBars(rows,max,unit,format=hardSkillNumber) {
@@ -822,9 +817,8 @@ function hardSkillGrapariAnalytics(report,period,comparison) {
 
 function hardSkillNationalDetailRows(report) {
  return (report.badTickets || []).flatMap(({channel,categoryDetails=[]})=>categoryDetails.map(row=>({
-  month:row.month,channel,service:row.service,category:row.category,count:row.count,
- }))).sort((a,b)=>a.month.localeCompare(b.month) || a.channel.localeCompare(b.channel,'id-ID') ||
-  a.service.localeCompare(b.service,'id-ID') || b.count-a.count || a.category.localeCompare(b.category,'id-ID'));
+  month:row.month,channel,service:row.service,category:row.category,count:row.count,prior:row.prior,
+ }))).sort((a,b)=>b.count-a.count || a.category.localeCompare(b.category,'id-ID'));
 }
 
 function hardSkillNationalWorkbookSheets(report) {
@@ -898,11 +892,10 @@ function hardSkillNationalAnalytics(report,period,comparison) {
   <summary>Lihat data Bad Ticket lengkap <span>${hardSkillNumber.format(detailRows.length)} baris rekap</span></summary>
   <div class="hard-skill-national-details-body">
    <p>Rincian kategori per periode, CTP, dan layanan sesuai filter aktif.</p>
-   ${detailRows.length?`<button type="button" class="btn" data-hard-skill-national-download>Unduh Excel sesuai filter</button>
-    <div class="hard-skill-analytics-table-wrap"><table class="hard-skill-analytics-table" aria-label="Rincian data Bad Ticket Nasional">
-     <thead><tr><th scope="col">Periode</th><th scope="col">CTP</th><th scope="col">Layanan</th><th scope="col">Kategori</th><th scope="col">Tiket</th></tr></thead>
-     <tbody>${detailRows.map(row=>`<tr><td>${el(hardSkillMonthLabel(row.month))}</td><td>${el(row.channel)}</td><td>${el(row.service)}</td>
-      <th scope="row">${el(row.category)}</th><td>${hardSkillNumber.format(row.count)}</td></tr>`).join('')}</tbody>
+   ${detailRows.length?`<div class="hard-skill-analytics-table-wrap"><table class="hard-skill-analytics-table" aria-label="Rincian data Bad Ticket Nasional">
+     <thead><tr><th scope="col">Periode</th><th scope="col">CTP</th><th scope="col">Layanan</th><th scope="col">Kategori</th><th scope="col"><button type="button" data-hard-skill-ticket-sort aria-label="Urutkan tiket terbanyak atau tersedikit">Tiket ↓</button></th><th scope="col">MoM</th></tr></thead>
+     <tbody>${detailRows.map(row=>`<tr data-ticket-count="${row.count}"><td>${el(hardSkillMonthLabel(row.month))}</td><td>${el(row.channel)}</td><td>${el(row.service)}</td>
+      <th scope="row">${el(row.category)}</th><td>${hardSkillNumber.format(row.count)}</td><td>${row.prior==null?'—':hardSkillMovement(row.count,row.prior,'tiket',{lowerIsBetter:true,compact:true})}</td></tr>`).join('')}</tbody>
     </table></div>`:'<p>Rincian kategori belum tersedia untuk filter ini.</p>'}
   </div></details>`;
  return `<section class="hard-skill-analytics hard-skill-tickets" tabindex="-1" aria-labelledby="hard-skill-analytics-title">
@@ -1032,6 +1025,13 @@ function bindDashboardHardSkill() {
   }
  },true);
  mount.addEventListener('keydown',event=>{
+  const slice = event.target.closest('[data-test-movement]');
+  if (slice && (event.key==='Enter' || event.key===' ')) {
+   event.preventDefault();
+   setTestDeepDiveMovement(slice.dataset.testMovement);
+   redraw();
+   return;
+  }
   const tab = event.target.closest('[data-hard-skill-gra-service]');
   if (!tab) return;
   const targets = {
@@ -1047,6 +1047,36 @@ function bindDashboardHardSkill() {
   next.focus();
  });
  mount.addEventListener('click',event=>{
+  const testProgram = event.target.closest('[data-test-program]');
+  if (testProgram) {
+   setTestDeepDiveProgram(testProgram.dataset.testProgram);
+   redraw();
+   return;
+  }
+  const testMovement = event.target.closest('[data-test-movement]');
+  if (testMovement) {
+   setTestDeepDiveMovement(testMovement.dataset.testMovement);
+   redraw();
+   return;
+  }
+  const testSort = event.target.closest('[data-test-sort]');
+  if (testSort) {
+   setTestDeepDiveSort(testSort.dataset.testSort);
+   redraw();
+   return;
+  }
+  const ticketSort = event.target.closest('[data-hard-skill-ticket-sort]');
+  if (ticketSort) {
+   const table = ticketSort.closest('table');
+   const body = table.tBodies[0];
+   const ascending = ticketSort.dataset.order !== 'asc';
+   for (const row of [...body.rows].sort((a,b)=>ascending
+    ? Number(a.dataset.ticketCount)-Number(b.dataset.ticketCount)
+    : Number(b.dataset.ticketCount)-Number(a.dataset.ticketCount))) body.append(row);
+   ticketSort.dataset.order = ascending ? 'asc' : 'desc';
+   ticketSort.textContent = ascending ? 'Tiket ↑' : 'Tiket ↓';
+   return;
+  }
   if (event.target.closest('[data-hard-skill-national-download]')) {
    const report = hardSkillResults.get(localLearningQuery())?.report;
    if (!report || !hardSkillNationalDetailRows(report).length) {

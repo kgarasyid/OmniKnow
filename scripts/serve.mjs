@@ -7,9 +7,11 @@ import { handleSurveyRequest } from '../api/survey-feed.js';
 import { localLearningReport } from './local-learning.mjs';
 import { hardSkillReport } from './hard-skill-report.mjs';
 import { askUnitDetails, localAskDrilldown } from './local-ask-drilldown.mjs';
+import { trainingResults } from '../server/training-results.mjs';
 
 const args = process.argv.slice(2);
 const isPreview = args.includes('--dist');
+const trainingResultsDemo = args.includes('--training-results-demo');
 const portIndex = args.indexOf('--port');
 const port = Number(portIndex >= 0 ? args[portIndex + 1] : process.env.PORT || (isPreview ? 4173 : 5173));
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Provide a port from 1 to 65535.');
@@ -85,6 +87,21 @@ const server = createServer(async (request, response) => {
     return response.end('Bad request');
   }
   const path = url.pathname;
+  if (path === '/api/training-results') {
+    const demoResults = [
+      {synthetic:true,name:'Demo Agent Alpha',score:92,result:'Pass',submittedAt:'2026-11-26T02:00:00Z'},
+      {synthetic:true,name:'Demo Agent Beta',score:72,result:'Needs improvement',submittedAt:'2026-11-26T01:30:00Z'}
+    ];
+    const result = await trainingResults(new Request(url, {method:request.method}), trainingResultsDemo ? {
+      apiKey:'fictional-local-preview',
+      fetcher:async () => Response.json({version:1,synthetic:true,results:demoResults})
+    } : {});
+    if (trainingResultsDemo && result.ok && request.method !== 'HEAD') {
+      return jsonResponse(request,response,result.status,{...await result.json(),preview:'fictional'});
+    }
+    response.writeHead(result.status,Object.fromEntries(result.headers));
+    return response.end(Buffer.from(await result.arrayBuffer()));
+  }
   if (learningData && ['/api/local-learning','/api/local-hard-skill','/local-hard-skill-documentation.png'].includes(path)) {
     const {host, origin, 'sec-fetch-site':site} = request.headers;
     if (![`127.0.0.1:${port}`, `localhost:${port}`].includes(host) ||
@@ -142,6 +159,7 @@ const server = createServer(async (request, response) => {
   assets['/manrope.woff2'] = 'font/woff2';
   assets['/manrope-OFL.txt'] = 'text/plain; charset=utf-8';
   assets['/dashboard-hard-skill.js'] = 'text/javascript; charset=utf-8';
+  assets['/training-results.html'] = 'text/html; charset=utf-8';
   if (path !== '/' && path !== '/index.html' && !assets[path]) {
     response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
     return response.end('Not found');

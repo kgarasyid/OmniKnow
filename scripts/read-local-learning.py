@@ -272,14 +272,20 @@ def load_training(rows):
         key = (row["nik siad"], session)
         program = "Bad Ticket" if "bad ticket" in title.casefold() else (
             "ACS Booster" if re.search(r"\bacs\b.*booster", title, re.I) else "")
-        area = row["area"]
+        area = " ".join(row["area"].split())
+        area_match = re.fullmatch(r"area\s*0*([1-4])", area, re.I)
+        site_match = re.fullmatch(r"(?:contact\s*center|call\s*center|site)\s*0*([1-2])", area, re.I)
+        normalized_area = f"Area {area_match[1]}" if area_match else (area if area.casefold().startswith("area ") else "")
+        site = f"Site {site_match[1]}" if site_match else ""
         channel = CHANNELS.get(row["unit type"].casefold(), "")
-        if not channel and area.casefold().startswith("area "):
+        if not channel and normalized_area:
             channel = "GraPARI"
         record = {
             "id": row["nik siad"], "date": day, "session": session,
+            "name": " ".join(row.get("nama", "").split()),
             "title": title, "type": row["jenis training"], "program": program,
-            "channel": channel, "area": area if channel == "GraPARI" else "",
+            "channel": channel, "area": normalized_area if channel == "GraPARI" else "",
+            "site": site,
             "region": row["regional"], "unit": row["unit grapari"],
             **training_scores(row),
         }

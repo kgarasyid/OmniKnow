@@ -365,7 +365,9 @@ function badTicketReport(data, query, months, reportArea) {
       ...(!channel ? {
         categoryDetails:[...groupBy(current,row=>JSON.stringify([row.month,row.service,row.category]))]
           .map(([,entries])=>({month:entries[0].month,service:entries[0].service,
-            category:entries[0].category || 'Kategori belum tercatat',count:sum(entries)}))
+            category:entries[0].category || 'Kategori belum tercatat',count:sum(entries),
+            prior:previousAvailable && knownServices(prior).includes(entries[0].service)
+              ? sum(scoped.filter(row=>row.month===prior && row.service===entries[0].service && row.category===entries[0].category)) : null}))
           .sort((a,b)=>a.month.localeCompare(b.month) || collator.compare(a.service,b.service) ||
             b.count-a.count || collator.compare(a.category,b.category)),
         serviceTotals:name === 'GraPARI' ? ticketServices.map(service => {

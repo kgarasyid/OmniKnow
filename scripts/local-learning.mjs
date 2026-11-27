@@ -34,7 +34,53 @@ function trainingSummary(rows, hard = rows.filter(row => formatKey(row.type) ===
     pairs: pairs.length,
     pairPre: average(pairs, 'pre'),
     pairPost: average(pairs, 'post'),
+    pairMovement: {
+      naik: pairs.filter(row => row.post > row.pre).length,
+      tetap: pairs.filter(row => row.post === row.pre).length,
+      turun: pairs.filter(row => row.post < row.pre).length,
+    },
+    pairChangeBands: {
+      downOver5: pairs.filter(row => row.post - row.pre < -5).length,
+      downTo5: pairs.filter(row => row.post - row.pre >= -5 && row.post < row.pre).length,
+      unchanged: pairs.filter(row => row.post === row.pre).length,
+      upTo5: pairs.filter(row => row.post - row.pre <= 5 && row.post > row.pre).length,
+      upOver5: pairs.filter(row => row.post - row.pre > 5).length,
+    },
+    preOnly: regular.filter(row => Number.isFinite(row.pre) && !Number.isFinite(row.post)).length,
+    postOnly: regular.filter(row => !Number.isFinite(row.pre) && Number.isFinite(row.post)).length,
   };
+}
+
+function testPairDetails(rows) {
+  return rows
+    .filter(row => row.program && Number.isFinite(row.pre) && Number.isFinite(row.post))
+    .map(row => ({
+      id: row.id || '',
+      name: row.name || row.id || 'Peserta tanpa nama',
+      channel: row.channel || 'CTP belum terpetakan',
+      area: row.area || row.site || row.region || row.unit || 'Area belum tercatat',
+      region: row.region || '',
+      unit: row.unit || '',
+      program: row.program || '',
+      title: row.title || '',
+      date: row.date || '',
+      pre: row.pre,
+      post: row.post,
+      delta: Math.round((row.post - row.pre) * 10) / 10,
+      movement: row.post > row.pre ? 'naik' : row.post < row.pre ? 'turun' : 'tetap',
+    }));
+}
+
+function testBreakdown(rows, keyFor) {
+  const groups = new Map();
+  for (const row of rows.filter(row => row.program)) {
+    const key = keyFor(row);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(row);
+  }
+  return [...groups].map(([label, group]) => ({label, ...trainingSummary(group)}))
+    .filter(group => group.pairs || group.preOnly || group.postOnly)
+    .sort((a, b) => b.pairs - a.pairs || a.label.localeCompare(b.label, 'id'));
 }
 
 function tryoutSummary(rows) {
@@ -125,6 +171,13 @@ export function localLearningReport(data, query) {
   return {
     months, groups,
     training: data.hasTraining ? training : null,
+    testBreakdown: data.hasTraining ? {
+      programs: testBreakdown(currentTraining, row => row.program),
+      channels: testBreakdown(currentTraining, row => row.channel || 'CTP belum terpetakan'),
+      programChannels: testBreakdown(currentTraining, row => `${row.program} · ${row.channel || 'CTP belum terpetakan'}`),
+      sessions: testBreakdown(currentTraining, row => `${row.date} · ${row.title} · ${row.channel || 'CTP belum terpetakan'}${row.session[2] ? ' · '+row.session[2] : ''}`),
+      pairDetails: testPairDetails(currentTraining),
+    } : null,
     priorTraining,
     tryout: data.hasTryout ? tryout : null,
     priorTryout,

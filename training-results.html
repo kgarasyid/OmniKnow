@@ -14,7 +14,7 @@ async function load(){
   try{
     const response=await fetch('/api/training-results',{cache:'no-store',signal:AbortSignal.timeout(15000)});
     if(!response.ok)throw Error();
-    const {results}=await response.json();
+    const {results,preview}=await response.json();
     table.tBodies[0].replaceChildren();
     for(const record of results){
       const row=table.tBodies[0].insertRow();
@@ -22,7 +22,7 @@ async function load(){
       for(const value of [record.name,record.score+'/100',record.result,date])row.insertCell().textContent=value;
     }
     table.hidden=!results.length;
-    statusText.textContent=results.length?'Showing the latest shared submission per agent.':'No submissions yet. Complete the tryout in the training portal to see the first result.';
+    statusText.textContent=preview==='fictional'?'Local preview · Fictional sample results, not production submissions.':results.length?'Showing the latest shared submission per agent.':'No submissions yet. Complete the tryout in the training portal to see the first result.';
   }catch{statusText.textContent='Unable to load shared results. Refresh to try again.';}
   finally{refresh.disabled=false;}
 }

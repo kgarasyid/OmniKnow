@@ -18,6 +18,8 @@ This project extends the recovered Rev X application with a shared redesign acro
 
 ## Start locally
 
+For a Weekly Tryout results preview with fictional records, run `npm run dev -- --training-results-demo` and open `http://127.0.0.1:5173/training-results.html`. The page explicitly labels these as fictional local results. Without that flag, the local endpoint uses the configured server-side `TRAINING_FEED_API_KEY`; missing credentials or an unavailable feed return 503. Production never enables the local fixture flag. Run `npm run test:training-results` to check the gateway route and feed boundary.
+
 The Pre-Post Evaluation page now supports separate survey response connections. See [Survey connections](docs/SURVEY-CONNECTIONS.md) for setup, scoring, polling and access limits. `api/survey-feed.js` reads accessible Google feeds; `survey-monitor.js` handles the browser UI. There is still no shared database or account login. The older recovery audit below describes the original static baseline.
 
 Use Node.js **24.x**, with npm. There are no application or development dependencies.

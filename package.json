@@ -18,6 +18,7 @@
     "verify:baseline": "node scripts/check.mjs --baseline",
     "verify:live": "node scripts/check.mjs --live",
     "test:ask": "node scripts/test-ask.mjs",
-    "test:auth": "node scripts/test-auth.mjs"
+    "test:auth": "node scripts/test-auth.mjs",
+    "test:training-results": "node scripts/test-training-results.mjs"
   }
 }
