@@ -1138,7 +1138,10 @@ function ctpExecutiveDashboard(agents, trial=false) {
  const csrSnapshotLabel = csrMonth ? monthLabel(csrMonth) : '';
  const localCsr = csrSnapshot?.data?.csrCounts;
  const priorCsr = previousAsk?.csrCounts;
- const totalCsr = counts=>counts ? Object.values(counts).reduce((sum,value)=>sum+value,0) : null;
+ // Keep records without a GraPARI model in the source snapshot, but exclude them
+ // from the displayed CTP count until their model can be classified.
+ const totalCsr = counts=>counts ? Object.entries(counts).reduce((sum,[name,value])=>
+  sum+(name==='GraPARI model belum tercatat'?0:value),0) : null;
  const total = totalCsr(localCsr), prior = totalCsr(priorCsr);
  const difference = prior==null || total==null ? null : total-prior;
  const [direction, symbol, tone] = difference > 0 ? ['Naik','↑','positive']
@@ -1269,9 +1272,6 @@ function ctpExecutiveDashboard(agents, trial=false) {
  }).join('')}</div>`);
  const csrGroups = cohortDefinitions.filter(([,key])=>key)
   .map(([label,key])=>({label,value:localCsr?.[key]}));
- if (localCsr?.['GraPARI model belum tercatat']) csrGroups.splice(2,0,{
-  label:'GraPARI · Model belum tercatat',value:localCsr['GraPARI model belum tercatat'],
- });
  if (localCsr?.['CTP belum terpetakan']) csrGroups.push({
   label:'CTP belum terpetakan',value:localCsr['CTP belum terpetakan'],
  });
